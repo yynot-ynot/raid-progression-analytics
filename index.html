@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FFLogs Ultimate Pull Loader</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+    <style>
+      :root {
+        color: #17202a;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #f7f8fa;
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      h1,
+      h2 {
+        margin: 0 0 12px;
+      }
+
+      section {
+        border-top: 1px solid #d7dce2;
+        padding: 20px 0;
+      }
+
+      label {
+        display: block;
+        font-size: 14px;
+        font-weight: 700;
+        margin: 0 0 6px;
+      }
+
+      input,
+      select,
+      button {
+        font: inherit;
+      }
+
+      input,
+      select {
+        box-sizing: border-box;
+        border: 1px solid #aeb7c2;
+        border-radius: 6px;
+        min-height: 38px;
+        padding: 8px 10px;
+        width: 100%;
+      }
+
+      button {
+        border: 1px solid #1f2937;
+        border-radius: 6px;
+        background: #1f2937;
+        color: white;
+        cursor: pointer;
+        min-height: 38px;
+        padding: 8px 12px;
+      }
+
+      button.secondary {
+        background: white;
+        color: #1f2937;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      pre {
+        background: #111827;
+        border-radius: 6px;
+        color: #f9fafb;
+        max-height: 420px;
+        overflow: auto;
+        padding: 12px;
+        white-space: pre-wrap;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .status {
+        font-weight: 700;
+        margin-top: 12px;
+      }
+
+      .ok {
+        color: #047857;
+      }
+
+      .error {
+        color: #b91c1c;
+      }
+
+      .ultimate-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .ultimate-row {
+        align-items: center;
+        background: white;
+        border: 1px solid #d7dce2;
+        border-radius: 6px;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 1fr auto;
+        padding: 12px;
+      }
+
+      .muted {
+        color: #5b6470;
+        font-size: 13px;
+      }
+
+      .chart-grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .chart-panel {
+        background: white;
+        border: 1px solid #d7dce2;
+        border-radius: 6px;
+        min-height: 320px;
+        overflow-x: auto;
+        padding: 12px;
+        position: relative;
+      }
+
+      .chart-panel svg {
+        display: block;
+        min-width: 900px;
+        width: 100%;
+      }
+
+      .sankey-tooltip {
+        background: white;
+        border: 1px solid #c7ced8;
+        border-radius: 4px;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+        color: #17202a;
+        font-size: 12px;
+        max-width: 320px;
+        padding: 8px;
+        pointer-events: none;
+        position: absolute;
+        z-index: 3;
+      }
+
+      .bar-grid line {
+        stroke: #d7dce2;
+      }
+
+      .bar-grid path {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>FFLogs Ultimate Pull Loader</h1>
+      <p>
+        Connect FFLogs, choose a static or personal logs source, discover available
+        Ultimates, then load normalized pull data for the selected fight.
+      </p>
+
+      <section>
+        <h2>Connection</h2>
+        <div class="controls">
+          <button id="connect">Connect FFLogs</button>
+          <button id="reconnect" class="secondary">Reconnect</button>
+          <button id="copy" class="secondary" disabled>Copy Result JSON</button>
+          <button id="download" class="secondary" disabled>Download Result JSON</button>
+          <button id="copy-pulls-csv" class="secondary" disabled>Copy Pull CSV</button>
+          <button id="download-pulls-csv" class="secondary" disabled>Download Pull CSV</button>
+          <button id="download-phase-csv" class="secondary" disabled>Download Phase CSV</button>
+          <button id="download-meeting-csv" class="secondary" disabled>Download Meeting CSV</button>
+          <button id="download-debug-csvs" class="secondary" disabled>Download Debug CSVs</button>
+        </div>
+        <div id="auth-status" class="status">Checking auth state...</div>
+      </section>
+
+      <section>
+        <h2>Source And Time Frame</h2>
+        <div class="grid">
+          <div>
+            <label for="source-url">FFLogs source URL</label>
+            <input
+              id="source-url"
+              value="https://www.fflogs.com/guild/reports-list/112977"
+              autocomplete="off"
+            />
+          </div>
+          <div>
+            <label for="time-preset">Time frame</label>
+            <select id="time-preset">
+              <option value="past-6-months">Past 6 months</option>
+              <option value="past-year">Past year</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div>
+            <label for="start-date">Custom start</label>
+            <input id="start-date" type="date" />
+          </div>
+          <div>
+            <label for="end-date">Custom end</label>
+            <input id="end-date" type="date" />
+          </div>
+        </div>
+        <p class="muted">
+          Static links use FFLogs guild-backed report lists. Personal links use
+          FFLogs user report lists.
+        </p>
+        <button id="discover" disabled>Discover Ultimates</button>
+      </section>
+
+      <section>
+        <h2>Available Ultimates</h2>
+        <div id="ultimate-list" class="ultimate-list">
+          <div class="muted">Run discovery to show supported Ultimates.</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Sankey Charts</h2>
+        <div class="controls">
+          <button id="render-live-sankey" disabled>Render Loaded Charts</button>
+          <button id="render-fixture-sankey" class="secondary">Render Planning Fixture</button>
+        </div>
+        <div id="sankey-status" class="status">Load pulls or render the Planning fixture.</div>
+        <div class="chart-grid">
+          <div id="sankey-time" class="chart-panel"></div>
+          <div id="sankey-meeting" class="chart-panel"></div>
+          <div id="sankey-pulls" class="chart-panel"></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Bar Charts</h2>
+        <div id="bar-status" class="status">Load pulls or render the Planning fixture.</div>
+        <div class="chart-grid">
+          <div id="bar-time" class="chart-panel"></div>
+          <div id="bar-meeting" class="chart-panel"></div>
+          <div id="bar-pulls" class="chart-panel"></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Result</h2>
+        <div id="workflow-status" class="status">Idle</div>
+        <pre id="output"></pre>
+      </section>
+    </main>
+
+    <script type="module">
+      import { queryFflogs } from "./src/fflogs/api/fflogsClient.js";
+      import {
+        buildPullSankeyFromPulls,
+        buildTimeSankeyFromPulls,
+        buildTimeWithMeetingSankeyFromPulls,
+      } from "./src/charts/sankey/sankeyData.js";
+      import { renderSankey } from "./src/charts/sankey/sankeyRenderer.js";
+      import {
+        buildMeetingTimeBarFromPulls,
+        buildPullBarFromPulls,
+        buildTimeBarFromPulls,
+      } from "./src/charts/bar/barData.js";
+      import { renderStackedBar } from "./src/charts/bar/barRenderer.js";
+      import { getChartColorsForRaid } from "./src/config/chartColors.js";
+      import { completeLogin, startLogin } from "./src/fflogs/auth/fflogsAuth.js";
+      import { TokenStore } from "./src/fflogs/auth/tokenStore.js";
+      import { loadCurrentUser } from "./src/fflogs/static-data/currentUserLoader.js";
+      import { buildFflogsCsvExports } from "./src/domain/csv-equivalent/fflogsCsvExports.js";
+      import { parseCsv } from "./src/ingestion/csv/parseCsv.js";
+      import { pullCsvRowsToNormalizedPulls } from "./src/ingestion/csv/pullCsvRows.js";
+      import {
+        buildWorkflowSourceConfig,
+        discoverAvailableUltimates,
+        loadUltimateRaidData,
+      } from "./src/fflogs/static-data/ultimateWorkflow.js";
+      import { loadGuildById } from "./src/fflogs/static-data/raidTeamLoader.js";
+      import { FFLOGS_CONFIG } from "./src/config/fflogsConfig.js";
+
+      const tokenStore = new TokenStore();
+      const state = {
+        currentUser: null,
+        config: null,
+        team: null,
+        discovery: null,
+        latestResult: null,
+        latestBundle: null,
+        selectedUltimate: null,
+        csvExports: null,
+      };
+
+      const authStatusEl = document.querySelector("#auth-status");
+      const workflowStatusEl = document.querySelector("#workflow-status");
+      const sankeyStatusEl = document.querySelector("#sankey-status");
+      const barStatusEl = document.querySelector("#bar-status");
+      const outputEl = document.querySelector("#output");
+      const ultimateListEl = document.querySelector("#ultimate-list");
+      const sankeyTimeEl = document.querySelector("#sankey-time");
+      const sankeyMeetingEl = document.querySelector("#sankey-meeting");
+      const sankeyPullsEl = document.querySelector("#sankey-pulls");
+      const barTimeEl = document.querySelector("#bar-time");
+      const barMeetingEl = document.querySelector("#bar-meeting");
+      const barPullsEl = document.querySelector("#bar-pulls");
+      const connectBtn = document.querySelector("#connect");
+      const reconnectBtn = document.querySelector("#reconnect");
+      const discoverBtn = document.querySelector("#discover");
+      const copyBtn = document.querySelector("#copy");
+      const downloadBtn = document.querySelector("#download");
+      const copyPullsCsvBtn = document.querySelector("#copy-pulls-csv");
+      const downloadPullsCsvBtn = document.querySelector("#download-pulls-csv");
+      const downloadPhaseCsvBtn = document.querySelector("#download-phase-csv");
+      const downloadMeetingCsvBtn = document.querySelector("#download-meeting-csv");
+      const downloadDebugCsvsBtn = document.querySelector("#download-debug-csvs");
+      const renderLiveSankeyBtn = document.querySelector("#render-live-sankey");
+      const renderFixtureSankeyBtn = document.querySelector("#render-fixture-sankey");
+
+      /**
+       * Execute one authenticated FFLogs GraphQL request.
+       *
+       * @param {object} request
+       * @returns {Promise<object>}
+       */
+      function queryWithToken(request) {
+        return queryFflogs({ ...request, tokenStore });
+      }
+
+      /**
+       * Update a status element with optional success or error styling.
+       *
+       * @param {Element} element
+       * @param {string} message
+       * @param {"ok"|"error"|""} tone
+       */
+      function setStatus(element, message, tone = "") {
+        element.textContent = message;
+        element.className = `status ${tone}`;
+      }
+
+      /**
+       * Render JSON in the output panel and enable export controls.
+       *
+       * @param {unknown} value
+       */
+      function renderResult(value) {
+        state.latestResult = value;
+        outputEl.textContent = JSON.stringify(value, null, 2);
+        copyBtn.disabled = !value;
+        downloadBtn.disabled = !value;
+      }
+
+      /**
+       * Enable or disable CSV export controls.
+       *
+       * @param {boolean} enabled
+       */
+      function setCsvExportState(enabled) {
+        copyPullsCsvBtn.disabled = !enabled;
+        downloadPullsCsvBtn.disabled = !enabled;
+        downloadPhaseCsvBtn.disabled = !enabled;
+        downloadMeetingCsvBtn.disabled = !enabled;
+        downloadDebugCsvsBtn.disabled = !enabled;
+      }
+
+      /**
+       * Read the current time-frame controls.
+       *
+       * @returns {object}
+       */
+      function readTimeFrame() {
+        const preset = document.querySelector("#time-preset").value;
+        if (preset !== "custom") return { preset };
+        return {
+          preset,
+          startDate: document.querySelector("#start-date").value,
+          endDate: document.querySelector("#end-date").value,
+        };
+      }
+
+      /**
+       * Load optional source identity for display and final bundle metadata.
+       *
+       * @param {object} config
+       * @returns {Promise<object|null>}
+       */
+      async function loadSourceIdentity(config) {
+        if (config.guildId != null) {
+          return loadGuildById({
+            guildId: config.guildId,
+            guildUrl: config.guildUrl,
+            queryFflogs: queryWithToken,
+          });
+        }
+
+        if (config.userId != null) {
+          return {
+            source: "fflogs",
+            sourceType: "user",
+            userId: config.userId,
+            userUrl: config.userUrl,
+          };
+        }
+
+        return null;
+      }
+
+      /**
+       * Discover supported Ultimates for the selected source and time range.
+       */
+      async function runDiscovery() {
+        setStatus(workflowStatusEl, "Discovering reports...");
+        ultimateListEl.innerHTML = '<div class="muted">Loading...</div>';
+        state.csvExports = null;
+        state.latestBundle = null;
+        state.selectedUltimate = null;
+        setCsvExportState(false);
+        renderLiveSankeyBtn.disabled = true;
+
+        state.config = buildWorkflowSourceConfig({
+          sourceUrl: document.querySelector("#source-url").value,
+          timeFrame: readTimeFrame(),
+        });
+        state.team = await loadSourceIdentity(state.config);
+        state.discovery = await discoverAvailableUltimates({
+          config: state.config,
+          queryFflogs: queryWithToken,
+          reportLimit: 100,
+        });
+
+        renderUltimateList(state.discovery.ultimates);
+        renderResult({
+          currentUser: state.currentUser,
+          source: state.team,
+          config: sanitizeConfig(state.config),
+          discoveredReports: state.discovery.reports.length,
+          ultimates: state.discovery.ultimates.map(summarizeUltimateGroup),
+        });
+        setStatus(workflowStatusEl, "Discovery complete.", "ok");
+      }
+
+      /**
+       * Render selectable Ultimate rows.
+       *
+       * @param {object[]} groups
+       */
+      function renderUltimateList(groups) {
+        if (!groups.length) {
+          ultimateListEl.innerHTML =
+            '<div class="muted">No supported Ultimate reports found for this source and time frame.</div>';
+          return;
+        }
+
+        ultimateListEl.replaceChildren(
+          ...groups.map((group) => {
+            const row = document.createElement("div");
+            row.className = "ultimate-row";
+
+            const text = document.createElement("div");
+            text.innerHTML = `<strong>${group.ultimate.displayName}</strong><div class="muted">${group.reportCount} report(s), encounter ${group.ultimate.encounterId}, zone ${group.ultimate.zoneId}</div>`;
+
+            const button = document.createElement("button");
+            button.textContent = "Load Pulls";
+            button.addEventListener("click", () => loadSelectedUltimate(group));
+
+            row.append(text, button);
+            return row;
+          }),
+        );
+      }
+
+      /**
+       * Load normalized pulls for one selected Ultimate group.
+       *
+       * @param {object} group
+       */
+      async function loadSelectedUltimate(group) {
+        setStatus(workflowStatusEl, `Loading pulls for ${group.ultimate.displayName}...`);
+        const bundle = await loadUltimateRaidData({
+          config: state.config,
+          ultimate: group.ultimate,
+          candidateReports: group.reports,
+          currentUser: state.currentUser,
+          team: state.team,
+          queryFflogs: queryWithToken,
+        });
+        const sortedPulls = bundle.pulls
+          .slice()
+          .sort((left, right) => Number(left.pullStartTimestamp || 0) - Number(right.pullStartTimestamp || 0));
+        state.latestBundle = bundle;
+        state.selectedUltimate = group.ultimate;
+        state.csvExports = buildFflogsCsvExports(bundle);
+
+        renderResult({
+          selectedUltimate: group.ultimate,
+          summary: {
+            reportCount: bundle.reports.length,
+            pullCount: bundle.pulls.length,
+            playerCount: bundle.players.length,
+            phaseCount: bundle.phases.length,
+            firstRaidDate: sortedPulls[0]?.raidDate || null,
+            latestRaidDate: sortedPulls.at(-1)?.raidDate || null,
+          },
+          csvPreview: {
+            pullData: state.csvExports.pullData.split("\n").slice(0, 8).join("\n"),
+            phaseTimes: state.csvExports.phaseTimes.split("\n").slice(0, 8).join("\n"),
+            meetingTimes: state.csvExports.meetingTimes.split("\n").slice(0, 8).join("\n"),
+          },
+          data: bundle,
+        });
+        setCsvExportState(true);
+        renderLiveSankeyBtn.disabled = false;
+        renderChartsFromPulls(bundle.pulls, "Loaded FFLogs pulls", group.ultimate);
+        setStatus(workflowStatusEl, `Loaded ${bundle.pulls.length} pull(s).`, "ok");
+      }
+
+      /**
+       * Render all currently supported chart variants from normalized pull rows.
+       *
+       * @param {object[]} pulls
+       * @param {string} label
+       * @param {object|string|number|null} raidRef
+       */
+      function renderChartsFromPulls(pulls, label, raidRef = null) {
+        const colors = getChartColorsForRaid(raidRef);
+        renderSankeysFromPulls(pulls, label, colors);
+        renderBarsFromPulls(pulls, label, colors);
+      }
+
+      /**
+       * Render all Sankey variants from normalized pull rows.
+       *
+       * @param {object[]} pulls
+       * @param {string} label
+       * @param {object} colors
+       */
+      function renderSankeysFromPulls(pulls, label, colors) {
+        const timeData = buildTimeSankeyFromPulls(pulls);
+        const meetingData = buildTimeWithMeetingSankeyFromPulls(pulls);
+        const pullData = buildPullSankeyFromPulls(pulls);
+
+        renderSankey(sankeyTimeEl, timeData, { title: `${label}: Time by progression phase`, colors });
+        renderSankey(sankeyMeetingEl, meetingData, {
+          title: `${label}: Time by progression phase with meetings, breaks, and DCs`,
+          colors,
+        });
+        renderSankey(sankeyPullsEl, pullData, { title: `${label}: Pulls by progression phase`, colors });
+        setStatus(
+          sankeyStatusEl,
+          `Rendered ${pulls.length} pull(s), ${timeData.nodes.length} time nodes, ${meetingData.nodes.length} meeting-time nodes, ${pullData.nodes.length} pull nodes.`,
+          "ok",
+        );
+      }
+
+      /**
+       * Render all stacked bar variants from normalized pull rows.
+       *
+       * @param {object[]} pulls
+       * @param {string} label
+       * @param {object} colors
+       */
+      function renderBarsFromPulls(pulls, label, colors) {
+        const timeData = buildTimeBarFromPulls(pulls);
+        const meetingData = buildMeetingTimeBarFromPulls(pulls);
+        const pullData = buildPullBarFromPulls(pulls);
+
+        renderStackedBar(barTimeEl, timeData, { title: `${label}: Total time by phase`, colors });
+        renderStackedBar(barMeetingEl, meetingData, {
+          title: `${label}: Total time by phase with meetings, breaks, and DCs`,
+          colors,
+        });
+        renderStackedBar(barPullsEl, pullData, { title: `${label}: Pull count by phase`, colors });
+        setStatus(
+          barStatusEl,
+          `Rendered ${pulls.length} pull(s) across ${timeData.rows.length} calendar day(s).`,
+          "ok",
+        );
+      }
+
+      /**
+       * Return a compact group summary for debug output.
+       *
+       * @param {object} group
+       * @returns {object}
+       */
+      function summarizeUltimateGroup(group) {
+        return {
+          slug: group.ultimate.slug,
+          name: group.ultimate.displayName,
+          zoneId: group.ultimate.zoneId,
+          encounterId: group.ultimate.encounterId,
+          reportCount: group.reportCount,
+          candidateReportCount: group.candidateReportCount,
+          confirmed: group.confirmed,
+          exactConfirmationRequired: group.exactConfirmationRequired,
+        };
+      }
+
+      /**
+       * Return copy-safe config data. This config does not contain token values.
+       *
+       * @param {object} config
+       * @returns {object}
+       */
+      function sanitizeConfig(config) {
+        return { ...config };
+      }
+
+      connectBtn.addEventListener("click", () =>
+        startLogin({
+          config: FFLOGS_CONFIG,
+          locationLike: window.location,
+          storage: window.sessionStorage,
+        }),
+      );
+
+      reconnectBtn.addEventListener("click", () => {
+        tokenStore.clearToken();
+        connectBtn.click();
+      });
+
+      discoverBtn.addEventListener("click", () => {
+        runDiscovery().catch((error) => {
+          console.error(error);
+          setStatus(workflowStatusEl, error.message, "error");
+          renderResult({ error: error.message });
+        });
+      });
+
+      copyBtn.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(JSON.stringify(state.latestResult, null, 2));
+        setStatus(workflowStatusEl, "Result JSON copied.", "ok");
+      });
+
+      downloadBtn.addEventListener("click", () => {
+        downloadText("fflogs-ultimate-pulls.json", JSON.stringify(state.latestResult, null, 2), "application/json");
+      });
+
+      copyPullsCsvBtn.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(state.csvExports?.pullData || "");
+        setStatus(workflowStatusEl, "Pull CSV copied.", "ok");
+      });
+
+      downloadPullsCsvBtn.addEventListener("click", () => {
+        downloadText("fflogs-pull-data.csv", state.csvExports?.pullData || "", "text/csv");
+      });
+
+      downloadPhaseCsvBtn.addEventListener("click", () => {
+        downloadText("fflogs-phase-times.csv", state.csvExports?.phaseTimes || "", "text/csv");
+      });
+
+      downloadMeetingCsvBtn.addEventListener("click", () => {
+        downloadText("fflogs-meeting-times.csv", state.csvExports?.meetingTimes || "", "text/csv");
+      });
+
+      downloadDebugCsvsBtn.addEventListener("click", () => {
+        downloadText("fflogs-reports.csv", state.csvExports?.reports || "", "text/csv");
+        downloadText("fflogs-players.csv", state.csvExports?.players || "", "text/csv");
+        downloadText("fflogs-phases.csv", state.csvExports?.phases || "", "text/csv");
+      });
+
+      renderLiveSankeyBtn.addEventListener("click", () => {
+        if (!state.latestBundle?.pulls?.length) {
+          setStatus(sankeyStatusEl, "No loaded pulls available.", "error");
+          return;
+        }
+        renderChartsFromPulls(state.latestBundle.pulls, "Loaded FFLogs pulls", state.selectedUltimate);
+      });
+
+      renderFixtureSankeyBtn.addEventListener("click", async () => {
+        setStatus(sankeyStatusEl, "Loading Planning fixture...");
+        try {
+          const response = await fetch("./Planning/fflogs-pull-data.csv");
+          if (!response.ok) throw new Error(`Planning fixture failed with HTTP ${response.status}`);
+          const rows = parseCsv(await response.text());
+          const pulls = pullCsvRowsToNormalizedPulls(rows);
+          renderChartsFromPulls(pulls, "Planning fixture", "dm");
+        } catch (error) {
+          console.error(error);
+          setStatus(sankeyStatusEl, error.message, "error");
+          setStatus(barStatusEl, error.message, "error");
+        }
+      });
+
+      /**
+       * Download a text payload from the browser.
+       *
+       * @param {string} filename
+       * @param {string} contents
+       * @param {string} type
+       */
+      function downloadText(filename, contents, type) {
+        const blob = new Blob([contents], { type });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.click();
+        URL.revokeObjectURL(url);
+      }
+
+      try {
+        await completeLogin({
+          config: FFLOGS_CONFIG,
+          locationLike: window.location,
+          storage: window.sessionStorage,
+          tokenStore,
+        });
+
+        if (tokenStore.isAuthenticated()) {
+          state.currentUser = await loadCurrentUser({ queryFflogs: queryWithToken });
+          discoverBtn.disabled = false;
+          setStatus(authStatusEl, `Authenticated as ${state.currentUser?.name || "FFLogs user"}.`, "ok");
+        } else {
+          setStatus(authStatusEl, "Not authenticated. Click Connect FFLogs.");
+        }
+      } catch (error) {
+        console.error(error);
+        tokenStore.clearToken();
+        discoverBtn.disabled = true;
+        setStatus(authStatusEl, error.message, "error");
+      }
+    </script>
+  </body>
+</html>
