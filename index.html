@@ -8,36 +8,38 @@
     <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
     <style>
       :root {
-        color: #17202a;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #1f2933;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.45;
       }
 
       body {
         margin: 0;
-        background: #f7f8fa;
+        background: #fafafa;
       }
 
       main {
-        max-width: 1120px;
         margin: 0 auto;
-        padding: 24px;
+        max-width: none;
+        padding: 28px clamp(12px, 2vw, 28px) 48px;
+        width: 100%;
+        box-sizing: border-box;
       }
 
       h1,
-      h2 {
-        margin: 0 0 12px;
+      h2,
+      p {
+        margin: 0;
       }
 
-      section {
-        border-top: 1px solid #d7dce2;
-        padding: 20px 0;
-      }
-
-      label {
-        display: block;
-        font-size: 14px;
+      h1 {
+        font-size: 24px;
         font-weight: 700;
-        margin: 0 0 6px;
+      }
+
+      h2 {
+        font-size: 15px;
+        font-weight: 700;
       }
 
       input,
@@ -48,18 +50,18 @@
 
       input,
       select {
-        box-sizing: border-box;
-        border: 1px solid #aeb7c2;
+        border: 1px solid #c9d0d8;
         border-radius: 6px;
+        box-sizing: border-box;
         min-height: 38px;
         padding: 8px 10px;
         width: 100%;
       }
 
       button {
-        border: 1px solid #1f2937;
+        background: #233142;
+        border: 1px solid #233142;
         border-radius: 6px;
-        background: #1f2937;
         color: white;
         cursor: pointer;
         min-height: 38px;
@@ -68,7 +70,8 @@
 
       button.secondary {
         background: white;
-        color: #1f2937;
+        border-color: #c9d0d8;
+        color: #233142;
       }
 
       button:disabled {
@@ -76,83 +79,321 @@
         opacity: 0.55;
       }
 
+      .split-download {
+        display: inline-flex;
+        position: relative;
+      }
+
+      .split-download[hidden] {
+        display: none;
+      }
+
+      .split-download button {
+        border-radius: 0;
+      }
+
+      .split-download-main {
+        border-bottom-left-radius: 6px !important;
+        border-top-left-radius: 6px !important;
+      }
+
+      .split-download-menu {
+        border-bottom-right-radius: 6px !important;
+        border-left-color: rgba(255, 255, 255, 0.35);
+        border-top-right-radius: 6px !important;
+        min-width: 38px;
+        padding-inline: 9px;
+      }
+
+      .split-download-options {
+        background: white;
+        border: 1px solid #c9d0d8;
+        border-radius: 6px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+        display: none;
+        min-width: 150px;
+        padding: 4px;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 6px);
+        z-index: 5;
+      }
+
+      .split-download.open .split-download-options {
+        display: grid;
+      }
+
+      .split-download-options button {
+        background: white;
+        border: 0;
+        border-radius: 4px;
+        color: #233142;
+        min-height: 34px;
+        padding: 7px 9px;
+        text-align: left;
+      }
+
+      .split-download-options button:hover {
+        background: #f1f4f7;
+      }
+
       pre {
         background: #111827;
         border-radius: 6px;
         color: #f9fafb;
-        max-height: 420px;
+        margin: 12px 0 0;
+        max-height: 320px;
         overflow: auto;
         padding: 12px;
         white-space: pre-wrap;
       }
 
-      .controls {
+      .topbar,
+      .surface-head {
+        align-items: center;
         display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+        justify-content: space-between;
       }
 
-      .grid {
+      .topbar {
+        margin-bottom: 22px;
+      }
+
+      .actions,
+      .ultimate-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .stack {
         display: grid;
-        gap: 14px;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+      }
+
+      .section,
+      .surface {
+        background: white;
+        border: 1px solid #e0e4e8;
+        border-radius: 8px;
+        padding: 16px;
+      }
+
+      .source-grid {
+        align-items: end;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: auto 1px minmax(280px, 1fr) auto;
+      }
+
+      .source-connect {
+        display: flex;
+        justify-content: center;
+        padding: 12px 0;
+      }
+
+      /* This component sets display:flex, so explicitly preserve HTML hidden state. */
+      .source-connect[hidden] {
+        display: none;
+      }
+
+      .source-connect button {
+        min-width: 180px;
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field label {
+        color: #44505c;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      #source-section.manual-only .source-grid {
+        grid-template-columns: minmax(280px, 1fr) auto;
+      }
+
+      .profile-source-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .profile-source-actions[hidden],
+      .source-divider[hidden] {
+        display: none;
+      }
+
+      .profile-source {
+        background: white;
+        border-color: #c9d0d8;
+        color: #344150;
+      }
+
+      .profile-source.active {
+        background: #233142;
+        border-color: #233142;
+        color: white;
+      }
+
+      #analyze {
+        background: #2b674f;
+        border-color: #2b674f;
+      }
+
+      .source-divider {
+        align-self: stretch;
+        border-left: 1px solid #e0e4e8;
+      }
+
+      .ultimate-list {
+        margin-top: 12px;
+      }
+
+      .ultimate-choice {
+        background: #f6f8fa;
+        border: 1px solid #d8dee5;
+        border-radius: 6px;
+        color: #243142;
+        cursor: pointer;
+        min-height: auto;
+        padding: 9px 11px;
+      }
+
+      .ultimate-choice.active,
+      .ultimate-choice:hover {
+        background: #233142;
+        border-color: #233142;
+        color: white;
+      }
+
+      .ultimate-choice.loading {
+        cursor: progress;
+      }
+
+      .muted {
+        color: #66727f;
+        font-size: 13px;
       }
 
       .status {
         font-weight: 700;
-        margin-top: 12px;
+        margin-top: 10px;
       }
 
       .ok {
-        color: #047857;
+        color: #176b4d;
       }
 
       .error {
         color: #b91c1c;
       }
 
-      .ultimate-list {
+      .summary {
         display: grid;
-        gap: 10px;
+        gap: 12px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
 
-      .ultimate-row {
-        align-items: center;
-        background: white;
-        border: 1px solid #d7dce2;
-        border-radius: 6px;
-        display: grid;
-        gap: 8px;
-        grid-template-columns: 1fr auto;
-        padding: 12px;
+      .stat {
+        border-right: 1px solid #e0e4e8;
+        padding-right: 12px;
       }
 
-      .muted {
-        color: #5b6470;
-        font-size: 13px;
+      .stat:last-child {
+        border-right: 0;
       }
 
-      .chart-grid {
-        display: grid;
+      .stat strong {
+        display: block;
+        font-size: 21px;
+        margin-top: 3px;
+      }
+
+      .tabs {
+        border-bottom: 1px solid #e0e4e8;
+        display: flex;
         gap: 18px;
+        margin: -2px 0 14px;
+        overflow-x: auto;
+      }
+
+      .tab {
+        background: transparent;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        color: #66727f;
+        flex: 0 0 auto;
+        font-size: 17px;
+        min-height: auto;
+        padding: 10px 0 9px;
+      }
+
+      .tab.active {
+        border-bottom-color: #233142;
+        color: #233142;
+        font-weight: 700;
+      }
+
+      .surface-head {
+        margin-bottom: 14px;
       }
 
       .chart-panel {
+        align-items: center;
         background: white;
-        border: 1px solid #d7dce2;
-        border-radius: 6px;
-        min-height: 320px;
-        overflow-x: auto;
-        padding: 12px;
+        border: 1px solid #e0e4e8;
+        border-radius: 8px;
+        color: #66727f;
+        display: none;
+        font-weight: 700;
+        justify-content: center;
+        min-height: clamp(340px, 48vh, 620px);
+        overflow: hidden;
         position: relative;
+      }
+
+      .chart-panel.active {
+        display: flex;
+      }
+
+      .chart-panel.sankey-panel {
+        min-height: clamp(500px, 62vh, 780px);
+      }
+
+      .chart-loading {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+      }
+
+      .chart-loading::before {
+        animation: spin 0.8s linear infinite;
+        border: 3px solid #d8dee5;
+        border-top-color: #233142;
+        border-radius: 999px;
+        content: "";
+        height: 18px;
+        width: 18px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       .chart-panel svg {
         display: block;
-        min-width: 900px;
+        min-width: 0;
         width: 100%;
       }
 
+      .chart-tooltip,
       .sankey-tooltip {
         background: white;
         border: 1px solid #c7ced8;
@@ -167,6 +408,55 @@
         z-index: 3;
       }
 
+      .chart-tooltip {
+        border-radius: 6px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+        color: #243142;
+        display: grid;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        gap: 3px;
+        line-height: 1.4;
+        max-width: none;
+        min-width: 0;
+        padding: 9px 10px;
+        width: max-content;
+      }
+
+      .chart-tooltip-date {
+        color: #66727f;
+        font-weight: 600;
+        margin-bottom: 3px;
+      }
+
+      .chart-tooltip-row {
+        align-items: baseline;
+        display: grid;
+        gap: 7px;
+        grid-template-columns: 10px 24px 48px 50px;
+      }
+
+      .chart-tooltip-dot {
+        border-radius: 999px;
+        display: inline-block;
+        height: 9px;
+        width: 9px;
+      }
+
+      .chart-tooltip-pct {
+        background: #eef2f6;
+        border-radius: 999px;
+        color: #66727f;
+        font-variant-numeric: tabular-nums;
+        padding: 1px 5px;
+        text-align: right;
+      }
+
+      .chart-tooltip-value {
+        color: #17202a;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
       .bar-grid line {
         stroke: #d7dce2;
       }
@@ -174,103 +464,167 @@
       .bar-grid path {
         display: none;
       }
+
+      .debug-panel {
+        display: none;
+      }
+
+      .debug-panel.open {
+        display: block;
+      }
+
+      @media (max-width: 900px) {
+        .topbar,
+        .surface-head {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .source-grid,
+        .summary {
+          grid-template-columns: 1fr;
+        }
+
+        .source-divider {
+          border-left: 0;
+          border-top: 1px solid #e0e4e8;
+        }
+
+        .stat {
+          border-bottom: 1px solid #e0e4e8;
+          border-right: 0;
+          padding-bottom: 10px;
+        }
+      }
     </style>
   </head>
   <body>
     <main>
-      <h1>FFLogs Ultimate Pull Loader</h1>
-      <p>
-        Connect FFLogs, choose a static or personal logs source, discover available
-        Ultimates, then load normalized pull data for the selected fight.
-      </p>
-
-      <section>
-        <h2>Connection</h2>
-        <div class="controls">
-          <button id="connect">Connect FFLogs</button>
-          <button id="reconnect" class="secondary">Reconnect</button>
-          <button id="copy" class="secondary" disabled>Copy Result JSON</button>
-          <button id="download" class="secondary" disabled>Download Result JSON</button>
-          <button id="copy-pulls-csv" class="secondary" disabled>Copy Pull CSV</button>
-          <button id="download-pulls-csv" class="secondary" disabled>Download Pull CSV</button>
-          <button id="download-phase-csv" class="secondary" disabled>Download Phase CSV</button>
-          <button id="download-meeting-csv" class="secondary" disabled>Download Meeting CSV</button>
-          <button id="download-debug-csvs" class="secondary" disabled>Download Debug CSVs</button>
+      <div class="topbar">
+        <div>
+          <h1>Raid Progression Analytics</h1>
+          <p class="muted">Load FFLogs pulls through first clear and review progression charts.</p>
+          <div id="auth-status" class="status">Checking auth state...</div>
         </div>
-        <div id="auth-status" class="status">Checking auth state...</div>
-      </section>
+      </div>
 
-      <section>
-        <h2>Source And Time Frame</h2>
-        <div class="grid">
-          <div>
-            <label for="source-url">FFLogs source URL</label>
-            <input
-              id="source-url"
-              value="https://www.fflogs.com/guild/reports-list/112977"
-              autocomplete="off"
-            />
+      <div class="stack">
+        <section class="section" id="source-section">
+          <div id="source-connect" class="source-connect" hidden>
+            <button id="connect">Connect FFLogs</button>
           </div>
-          <div>
-            <label for="time-preset">Time frame</label>
-            <select id="time-preset">
-              <option value="past-6-months">Past 6 months</option>
-              <option value="past-year">Past year</option>
-              <option value="custom">Custom</option>
-            </select>
+          <div id="source-workflow" hidden>
+            <div class="source-grid">
+              <div id="profile-source-actions" class="profile-source-actions" hidden></div>
+              <div id="source-divider" class="source-divider" hidden aria-hidden="true"></div>
+              <input
+                id="source-url"
+                aria-label="Paste an FFLogs link"
+                placeholder="Paste FFLogs link"
+                autocomplete="off"
+                disabled
+              />
+              <button id="analyze" disabled>Analyze</button>
+            </div>
+            <div id="ultimate-list" class="ultimate-list"></div>
           </div>
-          <div>
-            <label for="start-date">Custom start</label>
-            <input id="start-date" type="date" />
+        </section>
+
+        <section class="section summary">
+          <div class="stat"><span class="muted">Selected</span><strong id="summary-selected">No fight loaded</strong></div>
+          <div class="stat"><span class="muted">Pulls</span><strong id="summary-pulls">0</strong></div>
+          <div class="stat"><span class="muted">Reports opened</span><strong id="summary-reports">0</strong></div>
+          <div class="stat"><span class="muted">Data window</span><strong id="summary-window">-</strong></div>
+        </section>
+
+        <section class="surface">
+          <nav class="tabs" aria-label="Bar chart views">
+            <button class="tab active" data-tab-group="bar" data-target="bar-time">Daily Hours</button>
+            <button class="tab" data-tab-group="bar" data-target="bar-pulls">Daily Pull Count</button>
+            <button class="tab" data-tab-group="bar" data-target="bar-meeting">Full Session Time</button>
+          </nav>
+          <div class="surface-head">
+            <div>
+              <h2>Bar Analysis</h2>
+              <p id="bar-status" class="muted">Load pulls or render the Planning fixture.</p>
+            </div>
+            <div class="split-download" data-download-family="bar" hidden>
+              <button id="download-bar-html" class="split-download-main" disabled>Download HTML</button>
+              <button
+                id="download-bar-menu"
+                class="split-download-menu"
+                aria-label="More bar download options"
+                disabled
+              >
+                v
+              </button>
+              <div class="split-download-options">
+                <button id="download-bar-png" disabled>Download PNG</button>
+                <button id="download-phase-csv" disabled>Download CSV</button>
+              </div>
+            </div>
           </div>
-          <div>
-            <label for="end-date">Custom end</label>
-            <input id="end-date" type="date" />
-          </div>
-        </div>
-        <p class="muted">
-          Static links use FFLogs guild-backed report lists. Personal links use
-          FFLogs user report lists.
-        </p>
-        <button id="discover" disabled>Discover Ultimates</button>
-      </section>
-
-      <section>
-        <h2>Available Ultimates</h2>
-        <div id="ultimate-list" class="ultimate-list">
-          <div class="muted">Run discovery to show supported Ultimates.</div>
-        </div>
-      </section>
-
-      <section>
-        <h2>Sankey Charts</h2>
-        <div class="controls">
-          <button id="render-live-sankey" disabled>Render Loaded Charts</button>
-          <button id="render-fixture-sankey" class="secondary">Render Planning Fixture</button>
-        </div>
-        <div id="sankey-status" class="status">Load pulls or render the Planning fixture.</div>
-        <div class="chart-grid">
-          <div id="sankey-time" class="chart-panel"></div>
-          <div id="sankey-meeting" class="chart-panel"></div>
-          <div id="sankey-pulls" class="chart-panel"></div>
-        </div>
-      </section>
-
-      <section>
-        <h2>Bar Charts</h2>
-        <div id="bar-status" class="status">Load pulls or render the Planning fixture.</div>
-        <div class="chart-grid">
-          <div id="bar-time" class="chart-panel"></div>
-          <div id="bar-meeting" class="chart-panel"></div>
+          <div id="bar-time" class="chart-panel active"></div>
           <div id="bar-pulls" class="chart-panel"></div>
-        </div>
-      </section>
+          <div id="bar-meeting" class="chart-panel"></div>
+        </section>
 
-      <section>
-        <h2>Result</h2>
-        <div id="workflow-status" class="status">Idle</div>
-        <pre id="output"></pre>
-      </section>
+        <section class="surface">
+          <nav class="tabs" aria-label="Sankey chart views">
+            <button class="tab active" data-tab-group="sankey" data-target="sankey-time">Phase Time Progression</button>
+            <button class="tab" data-tab-group="sankey" data-target="sankey-pulls">Phase Pull Progression</button>
+            <button class="tab" data-tab-group="sankey" data-target="sankey-meeting">Full Session Time</button>
+          </nav>
+          <div class="surface-head">
+            <div>
+              <h2>Sankey Analysis</h2>
+              <p id="sankey-status" class="muted">Load pulls or render the Planning fixture.</p>
+            </div>
+            <div class="split-download" data-download-family="sankey" hidden>
+              <button id="download-sankey-html" class="split-download-main" disabled>Download HTML</button>
+              <button
+                id="download-sankey-menu"
+                class="split-download-menu"
+                aria-label="More Sankey download options"
+                disabled
+              >
+                v
+              </button>
+              <div class="split-download-options">
+                <button id="download-sankey-png" disabled>Download PNG</button>
+                <button id="download-meeting-csv" disabled>Download CSV</button>
+              </div>
+            </div>
+          </div>
+          <div id="sankey-time" class="chart-panel sankey-panel active"></div>
+          <div id="sankey-pulls" class="chart-panel sankey-panel"></div>
+          <div id="sankey-meeting" class="chart-panel sankey-panel"></div>
+        </section>
+
+        <section class="section">
+          <div class="surface-head">
+            <div>
+              <h2>Exports And Debug</h2>
+              <p id="workflow-status" class="muted">Idle</p>
+            </div>
+            <div class="actions">
+              <button id="render-live-sankey" class="secondary" disabled>Render Loaded Charts</button>
+              <button id="render-fixture-sankey" class="secondary">Render Planning Fixture</button>
+              <button id="copy" class="secondary" disabled>Copy JSON</button>
+              <button id="download" class="secondary" disabled>Download JSON</button>
+              <button id="copy-pulls-csv" class="secondary" disabled>Copy Pull CSV</button>
+              <button id="download-pulls-csv" class="secondary" disabled>Pull CSV</button>
+              <button id="download-debug-csvs" class="secondary" disabled>Debug CSVs</button>
+              <button id="download-discovery-reports" class="secondary" disabled>Download Discovery Reports</button>
+            </div>
+          </div>
+          <details>
+            <summary class="muted">Show result JSON</summary>
+            <pre id="output"></pre>
+          </details>
+        </section>
+      </div>
     </main>
 
     <script type="module">
@@ -291,6 +645,7 @@
       import { completeLogin, startLogin } from "./src/fflogs/auth/fflogsAuth.js";
       import { TokenStore } from "./src/fflogs/auth/tokenStore.js";
       import { loadCurrentUser } from "./src/fflogs/static-data/currentUserLoader.js";
+      import { buildPrimaryReportSourceActions } from "./src/fflogs/static-data/sourceSelection.js";
       import { buildFflogsCsvExports } from "./src/domain/csv-equivalent/fflogsCsvExports.js";
       import { parseCsv } from "./src/ingestion/csv/parseCsv.js";
       import { pullCsvRowsToNormalizedPulls } from "./src/ingestion/csv/pullCsvRows.js";
@@ -308,11 +663,19 @@
         config: null,
         team: null,
         discovery: null,
+        discoveryInProgress: false,
         latestResult: null,
         latestBundle: null,
         selectedUltimate: null,
+        activeEncounterId: null,
+        pickerEncounterOrder: [],
+        selectionLoads: new Map(),
+        loadedEncounterIds: new Set(),
+        loadedBundlesByEncounterId: new Map(),
         csvExports: null,
+        sourceOptions: [],
       };
+      let sankeyLibraryPromise = null;
 
       const authStatusEl = document.querySelector("#auth-status");
       const workflowStatusEl = document.querySelector("#workflow-status");
@@ -326,16 +689,34 @@
       const barTimeEl = document.querySelector("#bar-time");
       const barMeetingEl = document.querySelector("#bar-meeting");
       const barPullsEl = document.querySelector("#bar-pulls");
+      const sourceSectionEl = document.querySelector("#source-section");
+      const sourceConnectEl = document.querySelector("#source-connect");
+      const sourceWorkflowEl = document.querySelector("#source-workflow");
+      const profileSourceActionsEl = document.querySelector("#profile-source-actions");
+      const sourceDividerEl = document.querySelector("#source-divider");
+      const sourceUrlEl = document.querySelector("#source-url");
+      const summarySelectedEl = document.querySelector("#summary-selected");
+      const summaryPullsEl = document.querySelector("#summary-pulls");
+      const summaryReportsEl = document.querySelector("#summary-reports");
+      const summaryWindowEl = document.querySelector("#summary-window");
+      const barDownloadControlEl = document.querySelector('[data-download-family="bar"]');
+      const sankeyDownloadControlEl = document.querySelector('[data-download-family="sankey"]');
       const connectBtn = document.querySelector("#connect");
-      const reconnectBtn = document.querySelector("#reconnect");
-      const discoverBtn = document.querySelector("#discover");
+      const analyzeBtn = document.querySelector("#analyze");
       const copyBtn = document.querySelector("#copy");
       const downloadBtn = document.querySelector("#download");
       const copyPullsCsvBtn = document.querySelector("#copy-pulls-csv");
       const downloadPullsCsvBtn = document.querySelector("#download-pulls-csv");
+      const downloadBarHtmlBtn = document.querySelector("#download-bar-html");
+      const downloadBarMenuBtn = document.querySelector("#download-bar-menu");
+      const downloadBarPngBtn = document.querySelector("#download-bar-png");
       const downloadPhaseCsvBtn = document.querySelector("#download-phase-csv");
+      const downloadSankeyHtmlBtn = document.querySelector("#download-sankey-html");
+      const downloadSankeyMenuBtn = document.querySelector("#download-sankey-menu");
+      const downloadSankeyPngBtn = document.querySelector("#download-sankey-png");
       const downloadMeetingCsvBtn = document.querySelector("#download-meeting-csv");
       const downloadDebugCsvsBtn = document.querySelector("#download-debug-csvs");
+      const downloadDiscoveryReportsBtn = document.querySelector("#download-discovery-reports");
       const renderLiveSankeyBtn = document.querySelector("#render-live-sankey");
       const renderFixtureSankeyBtn = document.querySelector("#render-fixture-sankey");
 
@@ -387,17 +768,275 @@
       }
 
       /**
-       * Read the current time-frame controls.
+       * Show and enable chart exports only after the matching chart family exists.
        *
-       * @returns {object}
+       * CSV stays separately gated because Planning fixture charts can be rendered
+       * without a live FFLogs CSV bundle.
+       *
+       * @param {"bar"|"sankey"} family
+       * @param {boolean} enabled
        */
-      function readTimeFrame() {
-        const preset = document.querySelector("#time-preset").value;
-        if (preset !== "custom") return { preset };
+      function setChartExportState(family, enabled) {
+        const controls =
+          family === "bar"
+            ? [barDownloadControlEl, downloadBarHtmlBtn, downloadBarMenuBtn, downloadBarPngBtn]
+            : [sankeyDownloadControlEl, downloadSankeyHtmlBtn, downloadSankeyMenuBtn, downloadSankeyPngBtn];
+        const [wrapper, ...buttons] = controls;
+        wrapper.hidden = !enabled;
+        wrapper.classList.remove("open");
+        for (const button of buttons) {
+          button.disabled = !enabled;
+        }
+      }
+
+      /**
+       * Hide both chart export split buttons.
+       */
+      function resetChartExportState() {
+        setChartExportState("bar", false);
+        setChartExportState("sankey", false);
+      }
+
+      /**
+       * Replace chart contents with a consistent loading placeholder.
+       *
+       * @param {HTMLElement[]} panels
+       * @param {string} message
+       */
+      function setChartLoading(panels, message) {
+        for (const panel of panels) {
+          panel.replaceChildren();
+          const loading = document.createElement("div");
+          loading.className = "chart-loading";
+          loading.textContent = message;
+          panel.append(loading);
+        }
+      }
+
+      /**
+       * Replace chart contents with a visible error message.
+       *
+       * @param {HTMLElement[]} panels
+       * @param {string} message
+       */
+      function setChartError(panels, message) {
+        for (const panel of panels) {
+          panel.replaceChildren();
+          const error = document.createElement("div");
+          error.className = "error";
+          error.textContent = message;
+          panel.append(error);
+        }
+      }
+
+      /**
+       * Yield once so loading indicators can paint before expensive rendering.
+       *
+       * @returns {Promise<void>}
+       */
+      function nextFrame() {
+        return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      }
+
+      /**
+       * Ensure the D3 Sankey plugin is available before rendering Sankey charts.
+       *
+       * The page has a normal script tag for the plugin, but this fallback keeps
+       * Sankey rendering resilient when that CDN request is blocked or delayed.
+       *
+       * @returns {Promise<void>}
+       */
+      async function ensureSankeyLibrary() {
+        if (globalThis.d3?.sankey) return;
+        if (!globalThis.d3) throw new Error("D3 library is not loaded.");
+
+        sankeyLibraryPromise ||= new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js";
+          script.async = true;
+          script.onload = () => {
+            if (globalThis.d3?.sankey) {
+              resolve();
+            } else {
+              reject(new Error("D3 Sankey library loaded but did not register d3.sankey."));
+            }
+          };
+          script.onerror = () => reject(new Error("D3 Sankey library failed to load."));
+          document.head.append(script);
+        });
+
+        await sankeyLibraryPromise;
+      }
+
+      /**
+       * Update the compact loaded-data summary row.
+       *
+       * @param {object} summary
+       */
+      function updateSummary({ selected = "No fight loaded", pulls = 0, reports = 0, window = "-" } = {}) {
+        summarySelectedEl.textContent = selected;
+        summaryPullsEl.textContent = String(pulls);
+        summaryReportsEl.textContent = String(reports);
+        summaryWindowEl.textContent = window;
+      }
+
+      /**
+       * Format report-detail progress for the visible summary. A partial final
+       * percentage is expected when the chronological loader finds first clear
+       * and deliberately avoids opening later reports.
+       *
+       * @param {number} openedReports
+       * @param {number} totalReports
+       * @returns {string}
+       */
+      function formatReportProgress(openedReports, totalReports) {
+        const percentage = totalReports > 0 ? Math.round((openedReports / totalReports) * 100) : 0;
+        return `${openedReports} / ${totalReports} (${percentage}%)`;
+      }
+
+      /**
+       * Activate one chart panel within the selected tab group.
+       *
+       * @param {HTMLButtonElement} tab
+       */
+      function activateChartTab(tab) {
+        const group = tab.dataset.tabGroup;
+        const targetId = tab.dataset.target;
+        if (!group || !targetId) return;
+
+        document.querySelectorAll(`.tab[data-tab-group="${group}"]`).forEach((candidate) => {
+          candidate.classList.toggle("active", candidate === tab);
+        });
+        document.querySelectorAll(`.chart-panel[id^="${group}-"]`).forEach((panel) => {
+          panel.classList.toggle("active", panel.id === targetId);
+        });
+      }
+
+      /**
+       * Toggle one split-button download menu.
+       *
+       * @param {HTMLElement} splitControl
+       */
+      function toggleDownloadMenu(splitControl) {
+        if (!splitControl || splitControl.hidden) return;
+        const shouldOpen = !splitControl.classList.contains("open");
+        document.querySelectorAll(".split-download.open").forEach((control) => control.classList.remove("open"));
+        splitControl.classList.toggle("open", shouldOpen);
+      }
+
+      /**
+       * Close every open split download menu.
+       */
+      function closeDownloadMenus() {
+        document.querySelectorAll(".split-download.open").forEach((control) => control.classList.remove("open"));
+      }
+
+      /**
+       * Mark one rendered profile source as selected, or clear selection when
+       * the user analyzes a manually pasted source.
+       *
+       * @param {string|null} sourceId
+       */
+      function setSelectedProfileSource(sourceId) {
+        profileSourceActionsEl.querySelectorAll(".profile-source").forEach((button) => {
+          const isSelected = button.dataset.sourceId === sourceId;
+          button.classList.toggle("active", isSelected);
+          button.setAttribute("aria-pressed", String(isSelected));
+        });
+      }
+
+      /**
+       * Render the direct profile-source buttons and start the default source.
+       * One Static is shown at most; personal logs stays visible as the fallback.
+       */
+      async function initializeAutomaticSourceFlow() {
+        state.sourceOptions = buildPrimaryReportSourceActions(state.currentUser);
+        sourceConnectEl.hidden = true;
+        sourceWorkflowEl.hidden = false;
+        sourceUrlEl.disabled = false;
+        analyzeBtn.disabled = false;
+        profileSourceActionsEl.hidden = state.sourceOptions.length === 0;
+        sourceDividerEl.hidden = state.sourceOptions.length === 0;
+        sourceSectionEl.classList.toggle("manual-only", state.sourceOptions.length === 0);
+        profileSourceActionsEl.replaceChildren(
+          ...state.sourceOptions.map((source) => {
+            const button = document.createElement("button");
+            button.className = "profile-source";
+            button.dataset.sourceId = source.id;
+            button.textContent = source.label;
+            button.setAttribute("aria-pressed", "false");
+            button.addEventListener("click", () => {
+              setSelectedProfileSource(source.id);
+              runDiscovery({ sourceUrl: source.url, automatic: true }).catch(handleWorkflowError);
+            });
+            return button;
+          }),
+        );
+
+        if (!state.sourceOptions.length) {
+          setStatus(workflowStatusEl, "Enter an FFLogs source link to analyze.");
+          return;
+        }
+
+        setSelectedProfileSource(state.sourceOptions[0].id);
+        await runDiscovery({ sourceUrl: state.sourceOptions[0].url, automatic: true });
+      }
+
+      /**
+       * Surface a source-discovery failure without leaving stale chart panels.
+       *
+       * @param {Error} error
+       */
+      function handleWorkflowError(error) {
+        console.error(error);
+        setStatus(workflowStatusEl, error.message, "error");
+        renderResult({ error: error.message });
+      }
+
+      /**
+       * Write the exact discovery set to the browser console for FFLogs
+       * pagination debugging without adding implementation detail to the UI.
+       *
+       * @param {object[]} reports
+       */
+      function logDiscoveredReports(reports) {
+        console.debug("[FFLogs] Fetched discovery reports", toDiscoveryDebugReports(reports));
+      }
+
+      /**
+       * Normalize the fetched report list for console inspection and download.
+       * This intentionally excludes authentication state and raw API payloads.
+       *
+       * @param {object[]} reports
+       * @returns {object[]}
+       */
+      function toDiscoveryDebugReports(reports) {
+        return reports.map((report) => ({
+          code: report.code,
+          name: report.title || "Untitled report",
+          zoneId: report.zone?.id ?? null,
+          zoneName: report.zone?.name ?? null,
+          startDate: Number.isFinite(Number(report.startTime))
+            ? new Date(Number(report.startTime)).toISOString()
+            : null,
+          endDate: Number.isFinite(Number(report.endTime)) ? new Date(Number(report.endTime)).toISOString() : null,
+        }));
+      }
+
+      /**
+       * Build a token-free capture of report discovery for fixture creation.
+       *
+       * @returns {object|null}
+       */
+      function buildDiscoveryReportDebugExport() {
+        if (!state.discovery) return null;
+
         return {
-          preset,
-          startDate: document.querySelector("#start-date").value,
-          endDate: document.querySelector("#end-date").value,
+          capturedAt: new Date().toISOString(),
+          config: sanitizeConfig(state.config),
+          pagination: state.discovery.pagination,
+          pagesFetched: state.discovery.pagesFetched,
+          reports: toDiscoveryDebugReports(state.discovery.reports),
         };
       }
 
@@ -429,90 +1068,227 @@
       }
 
       /**
-       * Discover supported Ultimates for the selected source and time range.
+       * Discover supported Ultimates for a source's available FFLogs history.
        */
-      async function runDiscovery() {
-        setStatus(workflowStatusEl, "Discovering reports...");
+      async function runDiscovery({ sourceUrl = sourceUrlEl.value, automatic = false } = {}) {
+        setStatus(workflowStatusEl, automatic ? "Finding available Ultimate reports..." : "Analyzing source link...");
         ultimateListEl.innerHTML = '<div class="muted">Loading...</div>';
         state.csvExports = null;
         state.latestBundle = null;
         state.selectedUltimate = null;
+        state.activeEncounterId = null;
+        state.pickerEncounterOrder = [];
+        state.selectionLoads.clear();
+        state.loadedEncounterIds.clear();
+        state.loadedBundlesByEncounterId.clear();
+        state.discoveryInProgress = true;
+        downloadDiscoveryReportsBtn.disabled = true;
         setCsvExportState(false);
+        resetChartExportState();
         renderLiveSankeyBtn.disabled = true;
+        updateSummary();
 
         state.config = buildWorkflowSourceConfig({
-          sourceUrl: document.querySelector("#source-url").value,
-          timeFrame: readTimeFrame(),
+          sourceUrl,
+          timeFrame: { preset: "all-history" },
         });
         state.team = await loadSourceIdentity(state.config);
         state.discovery = await discoverAvailableUltimates({
           config: state.config,
           queryFflogs: queryWithToken,
           reportLimit: 100,
+          onUpdate: async (update) => {
+            state.discovery = update;
+            await renderUltimateList(update.ultimates, { autoSelect: false });
+            // Selection reads cached details. Re-render the active encounter as
+            // ordered workers commit additional reports, without starting a
+            // second FFLogs detail request for the same report.
+            const refreshedSelection = update.ultimates.find(
+              (group) => group.ultimate.encounterId === state.activeEncounterId,
+            );
+            if (refreshedSelection) {
+              // Keep the provisional graph mounted during discovery. The cache
+              // and summary still advance, while the final redraw happens only
+              // once the source-wide worker queue reaches a terminal state.
+              await selectUltimate(refreshedSelection, { refresh: true, renderCharts: false });
+            }
+            if (update.progress.stage === "report-pages") {
+              const totalPages = update.progress.total ?? "?";
+              setStatus(
+                workflowStatusEl,
+                `Fetching report pages ${update.progress.current} of ${totalPages} (${update.progress.reportsFetched} reports)...`,
+              );
+            } else {
+              setStatus(
+                workflowStatusEl,
+                `Identifying Ultimate reports ${update.progress.current} of ${update.progress.total}...`,
+              );
+            }
+          },
         });
+        state.discoveryInProgress = false;
+        const finalSelection = state.discovery.ultimates.find(
+          (group) => group.ultimate.encounterId === state.activeEncounterId,
+        );
+        if (finalSelection) {
+          await selectUltimate(finalSelection, { refresh: true, renderCharts: true });
+        }
+        logDiscoveredReports(state.discovery.reports);
+        downloadDiscoveryReportsBtn.disabled = false;
 
-        renderUltimateList(state.discovery.ultimates);
+        const automaticallySelected = await renderUltimateList(state.discovery.ultimates);
         renderResult({
           currentUser: state.currentUser,
           source: state.team,
           config: sanitizeConfig(state.config),
           discoveredReports: state.discovery.reports.length,
+          discoveryPagination: state.discovery.pagination,
+          discoveryPagesFetched: state.discovery.pagesFetched,
           ultimates: state.discovery.ultimates.map(summarizeUltimateGroup),
         });
-        setStatus(workflowStatusEl, "Discovery complete.", "ok");
+        if (!automaticallySelected && state.discovery.ultimates.length > 1) {
+          setStatus(workflowStatusEl, "Choose an Ultimate to load its progression.", "ok");
+        } else if (!automaticallySelected && state.discovery.ultimates.length === 0) {
+          setStatus(workflowStatusEl, "No supported Ultimate reports found for this source.");
+        }
       }
 
       /**
        * Render selectable Ultimate rows.
        *
        * @param {object[]} groups
+       * @param {{autoSelect?: boolean}} options
        */
-      function renderUltimateList(groups) {
-        if (!groups.length) {
-          ultimateListEl.innerHTML =
-            '<div class="muted">No supported Ultimate reports found for this source and time frame.</div>';
-          return;
+      async function renderUltimateList(groups, { autoSelect = true } = {}) {
+        const orderedGroups = orderUltimateGroups(groups);
+        if (!orderedGroups.length) {
+          ultimateListEl.innerHTML = autoSelect
+            ? '<div class="muted">No supported Ultimate reports found for this source.</div>'
+            : '<div class="muted">Looking for supported Ultimate reports...</div>';
+          return false;
+        }
+
+        if (autoSelect && orderedGroups.length === 1) {
+          ultimateListEl.innerHTML = `<div class="muted">Loading ${orderedGroups[0].ultimate.displayName}...</div>`;
+          await selectUltimate(orderedGroups[0]);
+          return true;
         }
 
         ultimateListEl.replaceChildren(
-          ...groups.map((group) => {
-            const row = document.createElement("div");
-            row.className = "ultimate-row";
-
-            const text = document.createElement("div");
-            text.innerHTML = `<strong>${group.ultimate.displayName}</strong><div class="muted">${group.reportCount} report(s), encounter ${group.ultimate.encounterId}, zone ${group.ultimate.zoneId}</div>`;
-
+          ...orderedGroups.map((group) => {
+            const encounterId = group.ultimate.encounterId;
+            const isActive = encounterId === state.activeEncounterId;
+            const isLoading = state.selectionLoads.has(encounterId);
             const button = document.createElement("button");
-            button.textContent = "Load Pulls";
-            button.addEventListener("click", () => loadSelectedUltimate(group));
+            button.className = `ultimate-choice${isActive ? " active" : ""}${isLoading ? " loading" : ""}`;
+            button.textContent = `${group.ultimate.displayName} · ${group.reportCount} reports${isLoading ? " · Loading..." : ""}`;
+            button.title = `Encounter ${group.ultimate.encounterId}, ${group.source?.zoneName || "FFLogs zone"}`;
+            button.addEventListener("click", () => {
+              selectUltimate(group).catch((error) => {
+                console.error(error);
+                setStatus(workflowStatusEl, error.message, "error");
+                setStatus(sankeyStatusEl, error.message, "error");
+                setStatus(barStatusEl, error.message, "error");
+                setChartError([barTimeEl, barMeetingEl, barPullsEl], error.message);
+                setChartError([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], error.message);
+              });
+            });
 
-            row.append(text, button);
-            return row;
+            return button;
           }),
         );
+        return false;
+      }
+
+      /**
+       * Preserve first-discovered picker positions. Discovery updates can add a
+       * lower canonical ID later, but must never shift an existing choice.
+       *
+       * @param {object[]} groups
+       * @returns {object[]}
+       */
+      function orderUltimateGroups(groups) {
+        const byEncounterId = new Map(groups.map((group) => [group.ultimate.encounterId, group]));
+        for (const encounterId of byEncounterId.keys()) {
+          if (!state.pickerEncounterOrder.includes(encounterId)) state.pickerEncounterOrder.push(encounterId);
+        }
+        return state.pickerEncounterOrder.map((encounterId) => byEncounterId.get(encounterId)).filter(Boolean);
+      }
+
+      /**
+       * Bind the view to one encounter's shared cached details. Repeated clicks
+       * on the active load are intentionally no-ops; switching encounter only
+       * changes the bound view and never changes the generic FFLogs queue.
+       *
+       * @param {object} group
+       * @param {{refresh?: boolean, renderCharts?: boolean}} options
+       * @returns {Promise<void>}
+       */
+      async function selectUltimate(group, { refresh = false, renderCharts = true } = {}) {
+        const encounterId = group.ultimate.encounterId;
+        const existingLoad = state.selectionLoads.get(encounterId);
+        if (existingLoad) return existingLoad;
+        if (!refresh && encounterId === state.activeEncounterId && state.loadedEncounterIds.has(encounterId)) return;
+
+        state.activeEncounterId = encounterId;
+        state.selectedUltimate = group.ultimate;
+        const load = loadSelectedUltimate(group, { renderCharts })
+          .then(() => {
+            state.loadedEncounterIds.add(encounterId);
+          })
+          .finally(() => {
+            state.selectionLoads.delete(encounterId);
+            // Keep the picker state visible after the load settles.
+            renderUltimateList(state.discovery?.ultimates || [], { autoSelect: false });
+          });
+        state.selectionLoads.set(encounterId, load);
+        await renderUltimateList(state.discovery?.ultimates || [], { autoSelect: false });
+        return load;
       }
 
       /**
        * Load normalized pulls for one selected Ultimate group.
        *
        * @param {object} group
+       * @param {{renderCharts?: boolean}} options
        */
-      async function loadSelectedUltimate(group) {
-        setStatus(workflowStatusEl, `Loading pulls for ${group.ultimate.displayName}...`);
+      async function loadSelectedUltimate(group, { renderCharts = true } = {}) {
+        const totalReports = group.reports.length;
+        let openedReports = 0;
+        updateSummary({
+          selected: group.ultimate.displayName,
+          reports: formatReportProgress(openedReports, totalReports),
+        });
+        setStatus(workflowStatusEl, `Loading available data for ${group.ultimate.displayName}...`);
+        if (renderCharts) {
+          resetChartExportState();
+          setChartLoading([barTimeEl, barMeetingEl, barPullsEl], "Waiting for pull data...");
+          setChartLoading([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], "Waiting for pull data...");
+        }
         const bundle = await loadUltimateRaidData({
-          config: state.config,
           ultimate: group.ultimate,
           candidateReports: group.reports,
+          reportDetails: group.reportDetails,
           currentUser: state.currentUser,
           team: state.team,
-          queryFflogs: queryWithToken,
         });
+        openedReports = bundle.reports.length;
         const sortedPulls = bundle.pulls
           .slice()
           .sort((left, right) => Number(left.pullStartTimestamp || 0) - Number(right.pullStartTimestamp || 0));
         state.latestBundle = bundle;
         state.selectedUltimate = group.ultimate;
+        state.loadedBundlesByEncounterId.set(group.ultimate.encounterId, bundle);
         state.csvExports = buildFflogsCsvExports(bundle);
+        updateSummary({
+          selected: group.ultimate.displayName,
+          pulls: bundle.pulls.length,
+          reports: openedReports,
+          window:
+            sortedPulls.length > 0
+              ? `${sortedPulls[0]?.raidDate || "-"} - ${sortedPulls.at(-1)?.raidDate || "-"}`
+              : "-",
+        });
 
         renderResult({
           selectedUltimate: group.ultimate,
@@ -533,8 +1309,12 @@
         });
         setCsvExportState(true);
         renderLiveSankeyBtn.disabled = false;
-        renderChartsFromPulls(bundle.pulls, "Loaded FFLogs pulls", group.ultimate);
-        setStatus(workflowStatusEl, `Loaded ${bundle.pulls.length} pull(s).`, "ok");
+        if (renderCharts) {
+          await renderChartsFromPulls(bundle.pulls, "Loaded FFLogs pulls", group.ultimate);
+          setStatus(workflowStatusEl, `Loaded ${bundle.pulls.length} pull(s).`, "ok");
+        } else {
+          setStatus(workflowStatusEl, `Searching ${group.ultimate.displayName}; ${bundle.pulls.length} pull(s) cached...`);
+        }
       }
 
       /**
@@ -544,10 +1324,15 @@
        * @param {string} label
        * @param {object|string|number|null} raidRef
        */
-      function renderChartsFromPulls(pulls, label, raidRef = null) {
+      async function renderChartsFromPulls(pulls, label, raidRef = null) {
         const colors = getChartColorsForRaid(raidRef);
-        renderSankeysFromPulls(pulls, label, colors);
+        resetChartExportState();
+        setChartLoading([barTimeEl, barMeetingEl, barPullsEl], "Rendering bar charts...");
+        setChartLoading([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], "Rendering Sankey charts...");
+        await nextFrame();
+
         renderBarsFromPulls(pulls, label, colors);
+        await renderSankeysFromPulls(pulls, label, colors);
       }
 
       /**
@@ -557,7 +1342,9 @@
        * @param {string} label
        * @param {object} colors
        */
-      function renderSankeysFromPulls(pulls, label, colors) {
+      async function renderSankeysFromPulls(pulls, label, colors) {
+        await ensureSankeyLibrary();
+
         const timeData = buildTimeSankeyFromPulls(pulls);
         const meetingData = buildTimeWithMeetingSankeyFromPulls(pulls);
         const pullData = buildPullSankeyFromPulls(pulls);
@@ -568,6 +1355,7 @@
           colors,
         });
         renderSankey(sankeyPullsEl, pullData, { title: `${label}: Pulls by progression phase`, colors });
+        setChartExportState("sankey", true);
         setStatus(
           sankeyStatusEl,
           `Rendered ${pulls.length} pull(s), ${timeData.nodes.length} time nodes, ${meetingData.nodes.length} meeting-time nodes, ${pullData.nodes.length} pull nodes.`,
@@ -593,11 +1381,308 @@
           colors,
         });
         renderStackedBar(barPullsEl, pullData, { title: `${label}: Pull count by phase`, colors });
+        setChartExportState("bar", true);
         setStatus(
           barStatusEl,
           `Rendered ${pulls.length} pull(s) across ${timeData.rows.length} calendar day(s).`,
           "ok",
         );
+      }
+
+      /**
+       * Download a standalone HTML report for one chart family.
+       *
+       * The snapshot excludes FFLogs auth state and stores only the already
+       * rendered SVGs plus a tiny hover/tab script for review outside the app.
+       *
+       * @param {"bar"|"sankey"} family
+       */
+      function downloadChartHtmlReport(family) {
+        const html = buildChartHtmlReport(family);
+        downloadText(`${buildExportBaseName(family)}.html`, html, "text/html");
+        setStatus(workflowStatusEl, `${capitalize(family)} HTML downloaded.`, "ok");
+      }
+
+      /**
+       * Download the currently visible chart in one family as a PNG.
+       *
+       * @param {"bar"|"sankey"} family
+       * @returns {Promise<void>}
+       */
+      async function downloadActiveChartPng(family) {
+        const panel = getActiveChartPanel(family);
+        const svg = panel?.querySelector("svg");
+        if (!svg) throw new Error(`No ${family} chart is rendered yet.`);
+
+        const svgText = serializeSvgForDownload(svg);
+        const image = new Image();
+        const svgUrl = URL.createObjectURL(new Blob([svgText], { type: "image/svg+xml;charset=utf-8" }));
+
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = () => reject(new Error(`${capitalize(family)} PNG export failed.`));
+          image.src = svgUrl;
+        });
+
+        const viewBox = svg.viewBox.baseVal;
+        const width = Math.max(1, viewBox?.width || svg.clientWidth || 1200);
+        const height = Math.max(1, viewBox?.height || svg.clientHeight || 700);
+        const canvas = document.createElement("canvas");
+        canvas.width = width * 2;
+        canvas.height = height * 2;
+
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(svgUrl);
+
+        const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+        if (!pngBlob) throw new Error(`${capitalize(family)} PNG export failed.`);
+
+        downloadBlob(`${buildExportBaseName(family)}.png`, pngBlob);
+        setStatus(workflowStatusEl, `${capitalize(family)} PNG downloaded.`, "ok");
+      }
+
+      /**
+       * Build a self-contained chart-review document for one chart family.
+       *
+       * @param {"bar"|"sankey"} family
+       * @returns {string}
+       */
+      function buildChartHtmlReport(family) {
+        const panels = getChartExportPanels(family);
+        const tabs = panels
+          .map(
+            (panel) =>
+              `<button class="tab${panel.active ? " active" : ""}" data-target="${escapeHtml(panel.id)}">${escapeHtml(
+                panel.label,
+              )}</button>`,
+          )
+          .join("");
+        const charts = panels
+          .map(
+            (panel) =>
+              `<section id="${escapeHtml(panel.id)}" class="chart-panel${panel.active ? " active" : ""}">${panel.html}</section>`,
+          )
+          .join("");
+
+        return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(getReportTitle(family))}</title>
+    <style>
+      :root {
+        color: #1f2933;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.45;
+      }
+      body {
+        background: #fafafa;
+        margin: 0;
+      }
+      main {
+        box-sizing: border-box;
+        padding: 24px clamp(12px, 2vw, 28px) 42px;
+        width: 100%;
+      }
+      h1,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .muted {
+        color: #66727f;
+        font-size: 13px;
+      }
+      .summary {
+        border-bottom: 1px solid #e0e4e8;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin: 14px 0;
+        padding-bottom: 14px;
+      }
+      .tabs {
+        border-bottom: 1px solid #e0e4e8;
+        display: flex;
+        gap: 18px;
+        margin-bottom: 14px;
+        overflow-x: auto;
+      }
+      .tab {
+        background: transparent;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        color: #66727f;
+        cursor: pointer;
+        flex: 0 0 auto;
+        font: inherit;
+        font-size: 17px;
+        padding: 10px 0 9px;
+      }
+      .tab.active {
+        border-bottom-color: #233142;
+        color: #233142;
+        font-weight: 700;
+      }
+      .chart-panel {
+        background: white;
+        border: 1px solid #e0e4e8;
+        border-radius: 8px;
+        display: none;
+        min-height: 60vh;
+        overflow: hidden;
+        position: relative;
+      }
+      .chart-panel.active {
+        display: flex;
+      }
+      .chart-panel svg {
+        display: block;
+        width: 100%;
+      }
+      .chart-tooltip {
+        background: white;
+        border: 1px solid #c7ced8;
+        border-radius: 6px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+        color: #243142;
+        display: none;
+        font-size: 12px;
+        line-height: 1.4;
+        max-width: 320px;
+        padding: 8px 10px;
+        pointer-events: none;
+        position: fixed;
+        white-space: pre-line;
+        z-index: 3;
+      }
+      .bar-grid line {
+        stroke: #d7dce2;
+      }
+      .bar-grid path {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>${escapeHtml(getReportTitle(family))}</h1>
+      <div class="summary">
+        <span class="muted">Selected: ${escapeHtml(summarySelectedEl.textContent)}</span>
+        <span class="muted">Pulls: ${escapeHtml(summaryPullsEl.textContent)}</span>
+        <span class="muted">Reports opened: ${escapeHtml(summaryReportsEl.textContent)}</span>
+        <span class="muted">Data window: ${escapeHtml(summaryWindowEl.textContent)}</span>
+      </div>
+      <nav class="tabs" aria-label="${escapeHtml(capitalize(family))} chart views">${tabs}</nav>
+      ${charts}
+      <div class="chart-tooltip"></div>
+    </main>
+    <script>
+      const tooltip = document.querySelector(".chart-tooltip");
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll(".tab").forEach((candidate) => candidate.classList.toggle("active", candidate === tab));
+          document.querySelectorAll(".chart-panel").forEach((panel) => panel.classList.toggle("active", panel.id === tab.dataset.target));
+        });
+      });
+      document.querySelectorAll("[data-tooltip]").forEach((target) => {
+        target.addEventListener("mousemove", (event) => {
+          tooltip.textContent = target.dataset.tooltip || "";
+          tooltip.style.display = "block";
+          tooltip.style.left = event.clientX + 16 + "px";
+          tooltip.style.top = event.clientY + 16 + "px";
+        });
+        target.addEventListener("mouseleave", () => {
+          tooltip.style.display = "none";
+        });
+      });
+    <\/script>
+  </body>
+</html>`;
+      }
+
+      /**
+       * Return rendered panel HTML for one chart family.
+       *
+       * @param {"bar"|"sankey"} family
+       * @returns {{id: string, label: string, active: boolean, html: string}[]}
+       */
+      function getChartExportPanels(family) {
+        return Array.from(document.querySelectorAll(`.tab[data-tab-group="${family}"]`)).map((tab) => {
+          const panel = document.querySelector(`#${tab.dataset.target}`);
+          return {
+            id: tab.dataset.target,
+            label: tab.textContent,
+            active: tab.classList.contains("active"),
+            html: sanitizeChartPanelHtml(panel),
+          };
+        });
+      }
+
+      /**
+       * Clone one chart panel and remove live-only tooltip/loading elements.
+       *
+       * @param {HTMLElement} panel
+       * @returns {string}
+       */
+      function sanitizeChartPanelHtml(panel) {
+        if (!panel?.querySelector("svg")) return '<div class="muted">No chart rendered.</div>';
+        const clone = panel.cloneNode(true);
+        clone.querySelectorAll(".chart-tooltip, .sankey-tooltip, .chart-loading").forEach((node) => node.remove());
+        clone.querySelectorAll("script").forEach((node) => node.remove());
+        return clone.innerHTML;
+      }
+
+      /**
+       * Return the currently selected panel in one chart family.
+       *
+       * @param {"bar"|"sankey"} family
+       * @returns {HTMLElement|null}
+       */
+      function getActiveChartPanel(family) {
+        return document.querySelector(`.chart-panel[id^="${family}-"].active`);
+      }
+
+      /**
+       * Serialize one SVG with the app's SVG-only CSS included for image export.
+       *
+       * @param {SVGElement} svg
+       * @returns {string}
+       */
+      function serializeSvgForDownload(svg) {
+        const clone = svg.cloneNode(true);
+        const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+        style.textContent = ".bar-grid line{stroke:#d7dce2}.bar-grid path{display:none}";
+        clone.insertBefore(style, clone.firstChild);
+        return new XMLSerializer().serializeToString(clone);
+      }
+
+      /**
+       * Build a stable filename stem for chart exports.
+       *
+       * @param {"bar"|"sankey"} family
+       * @returns {string}
+       */
+      function buildExportBaseName(family) {
+        const selected = slugify(summarySelectedEl.textContent || "raid-progression");
+        return `${selected}-${family}-charts`;
+      }
+
+      /**
+       * Return the export document title.
+       *
+       * @param {"bar"|"sankey"} family
+       * @returns {string}
+       */
+      function getReportTitle(family) {
+        return `${summarySelectedEl.textContent || "Raid Progression"} ${capitalize(family)} Charts`;
       }
 
       /**
@@ -608,10 +1693,10 @@
        */
       function summarizeUltimateGroup(group) {
         return {
-          slug: group.ultimate.slug,
-          name: group.ultimate.displayName,
-          zoneId: group.ultimate.zoneId,
-          encounterId: group.ultimate.encounterId,
+              slug: group.ultimate.slug,
+              name: group.ultimate.displayName,
+              source: group.source || null,
+              encounterId: group.ultimate.encounterId,
           reportCount: group.reportCount,
           candidateReportCount: group.candidateReportCount,
           confirmed: group.confirmed,
@@ -637,17 +1722,24 @@
         }),
       );
 
-      reconnectBtn.addEventListener("click", () => {
-        tokenStore.clearToken();
-        connectBtn.click();
+      document.querySelectorAll(".tab[data-tab-group]").forEach((tab) => {
+        tab.addEventListener("click", () => activateChartTab(tab));
       });
 
-      discoverBtn.addEventListener("click", () => {
-        runDiscovery().catch((error) => {
-          console.error(error);
-          setStatus(workflowStatusEl, error.message, "error");
-          renderResult({ error: error.message });
+      document.querySelectorAll(".split-download-menu").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          toggleDownloadMenu(button.closest(".split-download"));
         });
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".split-download")) closeDownloadMenus();
+      });
+
+      analyzeBtn.addEventListener("click", () => {
+        setSelectedProfileSource(null);
+        runDiscovery({ sourceUrl: sourceUrlEl.value }).catch(handleWorkflowError);
       });
 
       copyBtn.addEventListener("click", async () => {
@@ -668,11 +1760,39 @@
         downloadText("fflogs-pull-data.csv", state.csvExports?.pullData || "", "text/csv");
       });
 
+      downloadBarHtmlBtn.addEventListener("click", () => {
+        closeDownloadMenus();
+        downloadChartHtmlReport("bar");
+      });
+
+      downloadBarPngBtn.addEventListener("click", () => {
+        closeDownloadMenus();
+        downloadActiveChartPng("bar").catch((error) => {
+          console.error(error);
+          setStatus(workflowStatusEl, error.message, "error");
+        });
+      });
+
       downloadPhaseCsvBtn.addEventListener("click", () => {
+        closeDownloadMenus();
         downloadText("fflogs-phase-times.csv", state.csvExports?.phaseTimes || "", "text/csv");
       });
 
+      downloadSankeyHtmlBtn.addEventListener("click", () => {
+        closeDownloadMenus();
+        downloadChartHtmlReport("sankey");
+      });
+
+      downloadSankeyPngBtn.addEventListener("click", () => {
+        closeDownloadMenus();
+        downloadActiveChartPng("sankey").catch((error) => {
+          console.error(error);
+          setStatus(workflowStatusEl, error.message, "error");
+        });
+      });
+
       downloadMeetingCsvBtn.addEventListener("click", () => {
+        closeDownloadMenus();
         downloadText("fflogs-meeting-times.csv", state.csvExports?.meetingTimes || "", "text/csv");
       });
 
@@ -682,26 +1802,41 @@
         downloadText("fflogs-phases.csv", state.csvExports?.phases || "", "text/csv");
       });
 
+      downloadDiscoveryReportsBtn.addEventListener("click", () => {
+        const capture = buildDiscoveryReportDebugExport();
+        if (!capture) return;
+
+        downloadText("fflogs-discovery-reports.json", JSON.stringify(capture, null, 2), "application/json");
+        setStatus(workflowStatusEl, "Discovery report capture downloaded.", "ok");
+      });
+
       renderLiveSankeyBtn.addEventListener("click", () => {
         if (!state.latestBundle?.pulls?.length) {
           setStatus(sankeyStatusEl, "No loaded pulls available.", "error");
           return;
         }
-        renderChartsFromPulls(state.latestBundle.pulls, "Loaded FFLogs pulls", state.selectedUltimate);
+        renderChartsFromPulls(state.latestBundle.pulls, "Loaded FFLogs pulls", state.selectedUltimate).catch((error) => {
+          console.error(error);
+          setStatus(sankeyStatusEl, error.message, "error");
+          setChartError([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], error.message);
+        });
       });
 
       renderFixtureSankeyBtn.addEventListener("click", async () => {
         setStatus(sankeyStatusEl, "Loading Planning fixture...");
+        state.csvExports = null;
+        setCsvExportState(false);
         try {
           const response = await fetch("./Planning/fflogs-pull-data.csv");
           if (!response.ok) throw new Error(`Planning fixture failed with HTTP ${response.status}`);
           const rows = parseCsv(await response.text());
           const pulls = pullCsvRowsToNormalizedPulls(rows);
-          renderChartsFromPulls(pulls, "Planning fixture", "dm");
+          await renderChartsFromPulls(pulls, "Planning fixture", "dm");
         } catch (error) {
           console.error(error);
           setStatus(sankeyStatusEl, error.message, "error");
           setStatus(barStatusEl, error.message, "error");
+          setChartError([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], error.message);
         }
       });
 
@@ -714,12 +1849,62 @@
        */
       function downloadText(filename, contents, type) {
         const blob = new Blob([contents], { type });
+        downloadBlob(filename, blob);
+      }
+
+      /**
+       * Download a prepared Blob from the browser.
+       *
+       * @param {string} filename
+       * @param {Blob} blob
+       */
+      function downloadBlob(filename, blob) {
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
         anchor.href = url;
         anchor.download = filename;
         anchor.click();
         URL.revokeObjectURL(url);
+      }
+
+      /**
+       * Escape text inserted into generated HTML documents.
+       *
+       * @param {string} value
+       * @returns {string}
+       */
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      /**
+       * Convert display text into a conservative filename fragment.
+       *
+       * @param {string} value
+       * @returns {string}
+       */
+      function slugify(value) {
+        return (
+          String(value || "raid-progression")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "raid-progression"
+        );
+      }
+
+      /**
+       * Capitalize a short UI label.
+       *
+       * @param {string} value
+       * @returns {string}
+       */
+      function capitalize(value) {
+        return `${String(value || "").slice(0, 1).toUpperCase()}${String(value || "").slice(1)}`;
       }
 
       try {
@@ -732,16 +1917,24 @@
 
         if (tokenStore.isAuthenticated()) {
           state.currentUser = await loadCurrentUser({ queryFflogs: queryWithToken });
-          discoverBtn.disabled = false;
           setStatus(authStatusEl, `Authenticated as ${state.currentUser?.name || "FFLogs user"}.`, "ok");
+          await initializeAutomaticSourceFlow();
         } else {
+          sourceConnectEl.hidden = false;
           setStatus(authStatusEl, "Not authenticated. Click Connect FFLogs.");
         }
       } catch (error) {
         console.error(error);
         tokenStore.clearToken();
-        discoverBtn.disabled = true;
-        setStatus(authStatusEl, error.message, "error");
+        analyzeBtn.disabled = true;
+        sourceUrlEl.disabled = true;
+        sourceConnectEl.hidden = false;
+        sourceWorkflowEl.hidden = true;
+        profileSourceActionsEl.replaceChildren();
+        profileSourceActionsEl.hidden = true;
+        sourceDividerEl.hidden = true;
+        sourceSectionEl.classList.add("manual-only");
+        setStatus(authStatusEl, "Not authenticated. Click Connect FFLogs.");
       }
     </script>
   </body>

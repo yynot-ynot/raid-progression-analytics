@@ -14,6 +14,8 @@ test("current user query includes required user fields", () => {
   assert.match(CURRENT_USER_QUERY, /currentUser/);
   assert.match(CURRENT_USER_QUERY, /id/);
   assert.match(CURRENT_USER_QUERY, /name/);
+  assert.match(CURRENT_USER_QUERY, /guilds/);
+  assert.match(CURRENT_USER_QUERY, /type/);
 });
 
 test("guild queries include FF-specific static and tag fields", () => {

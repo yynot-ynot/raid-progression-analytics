@@ -1,13 +1,12 @@
 import {
-  findUltimateByEncounterId,
-  findUltimatesByZoneId,
+  findUltimateVariantByEncounterId,
   ULTIMATE_ENCOUNTERS,
 } from "../../config/ultimateEncounters.js";
 import {
   loadAllReports,
-  loadReportDetailsUntilFirstClear,
   loadReportFights,
   mergeRaidTeamData,
+  sortReportsByStartTime,
 } from "./raidTeamLoader.js";
 import {
   buildDateRangePreset,
@@ -15,161 +14,141 @@ import {
   parseFflogsSourceUrl,
 } from "./sourceScope.js";
 
-/**
- * Build the report-discovery config from user-facing page inputs.
- *
- * @param {object} params
- * @returns {object}
- */
-export function buildWorkflowSourceConfig({
-  sourceUrl,
-  timeFrame = { preset: "past-6-months" },
-  nowMs = Date.now(),
-} = {}) {
-  const sourceScope = parseFflogsSourceUrl(sourceUrl);
-  const range = buildWorkflowDateRange(timeFrame, nowMs);
-  return buildReportSourceConfig(sourceScope, range);
+/** Build the report-discovery config from page inputs. */
+export function buildWorkflowSourceConfig({ sourceUrl, timeFrame = { preset: "all-history" }, nowMs = Date.now() } = {}) {
+  return buildReportSourceConfig(parseFflogsSourceUrl(sourceUrl), buildWorkflowDateRange(timeFrame, nowMs));
 }
 
-/**
- * Convert page time-frame selection into FFLogs millisecond timestamps.
- *
- * @param {{preset?: string, startDate?: string, endDate?: string}} timeFrame
- * @param {number} nowMs
- * @returns {{startTime: number, endTime: number}}
- */
-export function buildWorkflowDateRange(timeFrame = { preset: "past-6-months" }, nowMs = Date.now()) {
-  if (timeFrame.preset && timeFrame.preset !== "custom") {
-    return buildDateRangePreset(timeFrame.preset, nowMs);
-  }
-
+/** Convert a page time-frame selection into FFLogs timestamps. */
+export function buildWorkflowDateRange(timeFrame = { preset: "all-history" }, nowMs = Date.now()) {
+  if (timeFrame.preset === "all-history") return { startTime: null, endTime: null };
+  if (timeFrame.preset && timeFrame.preset !== "custom") return buildDateRangePreset(timeFrame.preset, nowMs);
   const startTime = parseDateBoundary(timeFrame.startDate, "start");
   const endTime = parseDateBoundary(timeFrame.endDate, "end");
-  if (startTime >= endTime) {
-    throw new Error("Custom date range start must be before end");
-  }
-
+  if (startTime >= endTime) throw new Error("Custom date range start must be before end");
   return { startTime, endTime };
 }
 
 /**
- * Discover which supported Ultimates are available for a source and time range.
- *
- * Report summaries are enough for single-Ultimate zones. Legacy zone 59 is
- * shared, so those report candidates are opened and confirmed by fight
- * encounter ID before they are shown as exact Ultimate matches.
- *
- * @param {object} params
- * @returns {Promise<{reports: object[], ultimates: object[]}>}
+ * Discover selectable Ultimate variants from unfiltered report-fight details.
+ * Zone and title data remain provenance only: a raw `fights[].encounterID` is
+ * the sole identity used to group a progression dataset.
  */
 export async function discoverAvailableUltimates({
   config,
   queryFflogs,
   reportLimit = 100,
-  maxReportPages = 100,
-  maxDetailReports = 100,
+  detailConcurrency = 3,
+  onUpdate = null,
 } = {}) {
-  const { reports } = await loadAllReports({
+  const groups = new Map();
+  const unclassifiedReports = [];
+  const failedReports = [];
+  const detailsByCode = new Map();
+  let reports = [];
+  let pagination = null;
+  let pagesFetched = 0;
+
+  const emit = async (progress) => onUpdate?.({
+    reports,
+    unclassifiedReports: [...unclassifiedReports],
+    ultimates: serializeGroups(groups),
+    pagination,
+    pagesFetched,
+    progress,
+  });
+
+  const loaded = await loadAllReports({
     config,
     limit: reportLimit,
-    maxPages: maxReportPages,
     queryFflogs,
+    onPage: async (page) => {
+      reports.push(...page.reports);
+      pagesFetched = page.pagesFetched;
+      await emit({ stage: "report-pages", ...page });
+    },
   });
-  const groups = createEmptyUltimateGroups();
-  const ambiguousReports = [];
+  reports = sortReportsByStartTime(loaded.reports);
+  pagination = loaded.pagination;
+  pagesFetched = loaded.pagesFetched;
 
-  for (const report of reports) {
-    const candidates = findUltimatesByZoneId(report?.zone?.id);
-    if (candidates.length === 1) {
-      addReportToGroup(groups, candidates[0], report, { confirmed: true });
-    } else if (candidates.length > 1) {
-      ambiguousReports.push(report);
-      for (const candidate of candidates) {
-        addReportToGroup(groups, candidate, report, { confirmed: false });
+  await loadReportDetailsWithConcurrency({
+    reports,
+    concurrency: detailConcurrency,
+    loadDetail: (report) =>
+      loadReportFights({
+        code: report.code,
+        config: { ...config, encounterId: null },
+        queryFflogs,
+      }),
+    onCommitted: async ({ report, detail, error, current, total }) => {
+      if (error || !detail) {
+        failedReports.push(report);
+        unclassifiedReports.push(report);
+      } else {
+        detailsByCode.set(report.code, detail);
+        const variants = recognizedVariants(detail);
+        if (!variants.length) unclassifiedReports.push(report);
+        for (const ultimate of variants) addReportToGroup(groups, ultimate, report, detail);
       }
-    }
-  }
-
-  for (const report of ambiguousReports.slice(0, maxDetailReports)) {
-    const detail = await loadReportFights({
-      code: report.code,
-      config: { ...config, encounterId: null },
-      queryFflogs,
-    });
-    for (const ultimate of getUltimatesFromDetail(detail)) {
-      addReportToGroup(groups, ultimate, report, { confirmed: true, detail });
-    }
-  }
+      await emit({
+        stage: "report-details",
+        current,
+        total,
+        reportsFetched: reports.length,
+        pagesFetched,
+        failedReportCount: failedReports.length,
+      });
+    },
+  });
 
   return {
     reports,
-    ultimates: serializeUltimateGroups(groups),
+    unclassifiedReports,
+    failedReports,
+    reportDetails: [...detailsByCode.values()],
+    ultimates: serializeGroups(groups),
+    pagination,
+    pagesFetched,
   };
 }
 
 /**
- * Load normalized pull data for one selected Ultimate.
- *
- * @param {object} params
- * @returns {Promise<object>}
+ * Build one selected raw encounter's bundle from the discovery cache. Selection
+ * never sends a second, encounter-filtered report-detail request.
  */
 export async function loadUltimateRaidData({
-  config,
   ultimate,
-  candidateReports = null,
+  candidateReports = [],
+  reportDetails = [],
   currentUser = null,
   team = null,
-  queryFflogs,
-  reportLimit = 100,
-  maxReportPages = 100,
 } = {}) {
-  if (!ultimate?.encounterId) {
-    throw new Error("A supported Ultimate encounter is required");
-  }
-
-  const reports =
-    candidateReports ||
-    (
-      await loadAllReports({
-        config: { ...config, zoneId: ultimate.zoneId },
-        limit: reportLimit,
-        maxPages: maxReportPages,
-        queryFflogs,
-      })
-    ).reports;
-
-  const loaded = await loadReportDetailsUntilFirstClear({
-    reports,
-    loadReportDetail: async (report) => {
-      const detail = await loadReportFights({
-        code: report.code,
-        config: { ...config, zoneId: ultimate.zoneId, encounterId: ultimate.encounterId },
-        queryFflogs,
-      });
-      return filterReportDetailForUltimate(detail, ultimate.encounterId);
-    },
-    shouldKeepDetail: (detail) => Boolean(detail?.fights?.length),
-  });
-
+  if (!ultimate?.encounterId) throw new Error("A supported Ultimate encounter is required");
+  const reportByCode = new Map(candidateReports.map((report) => [report.code, report]));
+  const selectedDetails = reportDetails
+    .map((detail) => filterReportDetailForUltimate(detail, ultimate.encounterId))
+    .filter((detail) => detail?.pulls?.length)
+    .sort((left, right) => Number(left.report?.startTime) - Number(right.report?.startTime));
+  const cutoff = firstClearCutoff(selectedDetails);
+  const reportDetailsThroughClear = selectedDetails
+    .map((detail) => trimDetailToCutoff(detail, cutoff))
+    .filter(Boolean);
+  const reportsThroughClear = reportDetailsThroughClear
+    .map((detail) => reportByCode.get(detail.report?.code) || detail.report)
+    .filter(Boolean);
   return mergeRaidTeamData({
     currentUser,
     team,
-    reports: loaded.reports,
-    reportDetails: loaded.reportDetails,
+    reports: reportsThroughClear,
+    reportDetails: reportDetailsThroughClear,
   });
 }
 
-/**
- * Keep detail rows for only the selected Ultimate encounter.
- *
- * @param {object|null} detail
- * @param {number|string} encounterId
- * @returns {object|null}
- */
+/** Keep one mapped detail's fights, phases, and pulls for a raw encounter ID. */
 export function filterReportDetailForUltimate(detail, encounterId) {
   const targetEncounterId = Number(encounterId);
   if (!detail) return null;
-
   return {
     ...detail,
     phases: (detail.phases || []).filter((phase) => Number(phase.encounterId) === targetEncounterId),
@@ -179,121 +158,124 @@ export function filterReportDetailForUltimate(detail, encounterId) {
 }
 
 /**
- * Parse custom date input as a local day boundary.
- *
- * @param {string|undefined} value
- * @param {"start"|"end"} boundary
- * @returns {number}
+ * Run a bounded detail worker pool. Requests may finish out of order, but
+ * results commit in chronological source order so progressive UI updates are
+ * deterministic and first-clear logic remains correct.
  */
-function parseDateBoundary(value, boundary) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) {
-    throw new Error("Custom date range requires YYYY-MM-DD dates");
-  }
+export async function loadReportDetailsWithConcurrency({
+  reports = [],
+  concurrency = 3,
+  loadDetail,
+  onCommitted = null,
+} = {}) {
+  const ordered = sortReportsByStartTime(reports);
+  if (!ordered.length) return;
+  const workerCount = Math.max(1, Math.min(Number(concurrency) || 3, ordered.length));
+  const pending = new Map();
+  const resolved = new Map();
+  let nextRequest = 0;
+  let nextCommit = 0;
+  let committed = 0;
 
-  const suffix = boundary === "start" ? "T00:00:00.000" : "T23:59:59.999";
-  const timestamp = new Date(`${value}${suffix}`).getTime();
-  if (!Number.isFinite(timestamp)) {
-    throw new Error(`Invalid custom date: ${value}`);
-  }
-  return timestamp;
-}
+  const start = (index) => {
+    const report = ordered[index];
+    const request = Promise.resolve()
+      .then(() => loadDetail(report))
+      .then((detail) => ({ index, report, detail, error: null }))
+      .catch((error) => ({ index, report, detail: null, error }));
+    pending.set(index, request);
+  };
+  while (nextRequest < workerCount) start(nextRequest++);
 
-/**
- * Create mutable discovery buckets keyed by Ultimate slug.
- *
- * @returns {Map<string, object>}
- */
-function createEmptyUltimateGroups() {
-  return new Map(
-    ULTIMATE_ENCOUNTERS.map((ultimate) => [
-      ultimate.slug,
-      {
-        ultimate,
-        candidateReportsByCode: new Map(),
-        confirmedReportsByCode: new Map(),
-        detailsByCode: new Map(),
-      },
-    ]),
-  );
-}
-
-/**
- * Add a report to one Ultimate discovery bucket.
- *
- * @param {Map<string, object>} groups
- * @param {object} ultimate
- * @param {object} report
- * @param {{confirmed?: boolean, detail?: object|null}} options
- */
-function addReportToGroup(groups, ultimate, report, { confirmed = false, detail = null } = {}) {
-  const group = groups.get(ultimate.slug);
-  if (!group || !report?.code) return;
-
-  group.candidateReportsByCode.set(report.code, report);
-  if (confirmed) {
-    group.confirmedReportsByCode.set(report.code, report);
-    if (detail) group.detailsByCode.set(report.code, filterReportDetailForUltimate(detail, ultimate.encounterId));
+  while (pending.size) {
+    const result = await Promise.race(pending.values());
+    pending.delete(result.index);
+    resolved.set(result.index, result);
+    if (nextRequest < ordered.length) start(nextRequest++);
+    while (resolved.has(nextCommit)) {
+      const item = resolved.get(nextCommit);
+      resolved.delete(nextCommit++);
+      committed += 1;
+      await onCommitted?.({ ...item, current: committed, total: ordered.length });
+    }
   }
 }
 
-/**
- * Return supported Ultimates seen in a mapped report detail.
- *
- * @param {object|null} detail
- * @returns {object[]}
- */
-function getUltimatesFromDetail(detail) {
-  const seen = new Map();
+function recognizedVariants(detail) {
+  const variants = new Map();
   for (const fight of detail?.fights || []) {
-    const ultimate = findUltimateByEncounterId(fight.encounterId);
-    if (ultimate) seen.set(ultimate.slug, ultimate);
+    const variant = findUltimateVariantByEncounterId(fight.encounterId);
+    if (variant) variants.set(variant.encounterId, variant);
   }
-  return [...seen.values()];
+  return [...variants.values()];
 }
 
-/**
- * Convert mutable discovery buckets into stable page-facing summaries.
- *
- * @param {Map<string, object>} groups
- * @returns {object[]}
- */
-function serializeUltimateGroups(groups) {
-  return [...groups.values()]
-    .filter((group) => group.candidateReportsByCode.size > 0)
-    .map((group) => {
-      const candidateReports = [...group.candidateReportsByCode.values()];
-      const confirmedReports = [...group.confirmedReportsByCode.values()];
-      const exactConfirmationRequired = findUltimatesByZoneId(group.ultimate.zoneId).length > 1;
-      const reports = exactConfirmationRequired ? confirmedReports : candidateReports;
+function addReportToGroup(groups, ultimate, report, detail) {
+  const key = String(ultimate.encounterId);
+  if (!groups.has(key)) groups.set(key, { ultimate, reportsByCode: new Map(), detailsByCode: new Map() });
+  const group = groups.get(key);
+  group.reportsByCode.set(report.code, report);
+  group.detailsByCode.set(report.code, filterReportDetailForUltimate(detail, ultimate.encounterId));
+}
 
+function serializeGroups(groups) {
+  return [...groups.values()]
+    .map((group) => {
+      const reports = sortReportsByStartTime([...group.reportsByCode.values()]);
       return {
-        ultimate: group.ultimate,
+        ultimate: {
+          ...group.ultimate,
+          displayName: group.ultimate.expansion === "Dawntrail"
+            ? group.ultimate.displayName
+            : `${group.ultimate.displayName} (${group.ultimate.expansion})`,
+        },
         reports,
-        candidateReports,
-        confirmedReports,
-        reportDetails: [...group.detailsByCode.values()].filter(Boolean),
+        candidateReports: reports,
+        confirmedReports: reports,
+        reportDetails: reports.map((report) => group.detailsByCode.get(report.code)).filter(Boolean),
         reportCount: reports.length,
-        candidateReportCount: candidateReports.length,
-        confirmed: !exactConfirmationRequired || confirmedReports.length > 0,
-        exactConfirmationRequired,
-        firstReportStartTime: getBoundary(reports, "startTime", Math.min),
-        lastReportStartTime: getBoundary(reports, "startTime", Math.max),
+        candidateReportCount: reports.length,
+        confirmed: true,
+        exactConfirmationRequired: true,
+        source: { kind: "report-fight", zoneId: null, zoneName: null },
+        firstReportStartTime: reports[0]?.startTime ?? null,
+        lastReportStartTime: reports.at(-1)?.startTime ?? null,
       };
     })
-    .filter((group) => group.reportCount > 0);
+    .sort((left, right) => {
+      const canonicalOrder = ULTIMATE_ENCOUNTERS.findIndex((entry) => entry.slug === left.ultimate.slug)
+        - ULTIMATE_ENCOUNTERS.findIndex((entry) => entry.slug === right.ultimate.slug);
+      return canonicalOrder || Number(left.ultimate.encounterId) - Number(right.ultimate.encounterId);
+    });
 }
 
-/**
- * Compute a numeric boundary for a report collection.
- *
- * @param {object[]} reports
- * @param {string} key
- * @param {Function} reducer
- * @returns {number|null}
- */
-function getBoundary(reports, key, reducer) {
-  const values = reports
-    .map((report) => Number(report?.[key]))
-    .filter((value) => Number.isFinite(value));
-  return values.length ? reducer(...values) : null;
+function firstClearCutoff(details) {
+  const clears = details.flatMap((detail) => detail.pulls || []).filter((pull) => pull.kill === true);
+  return clears.reduce((earliest, pull) => {
+    if (!earliest) return pull;
+    return pullEnd(pull) < pullEnd(earliest) ? pull : earliest;
+  }, null);
+}
+
+function trimDetailToCutoff(detail, cutoff) {
+  if (!cutoff) return detail;
+  const pulls = (detail.pulls || []).filter((pull) =>
+    pullEnd(pull) < pullEnd(cutoff)
+      || (pull.reportCode === cutoff.reportCode && Number(pull.fightId) === Number(cutoff.fightId)),
+  );
+  if (!pulls.length) return null;
+  const fightIds = new Set(pulls.map((pull) => Number(pull.fightId)));
+  return { ...detail, fights: (detail.fights || []).filter((fight) => fightIds.has(Number(fight.id))), pulls };
+}
+
+function pullEnd(pull) {
+  return Number(pull.pullStartTimestamp) + Number(pull.pullDurationMs || 0);
+}
+
+function parseDateBoundary(value, boundary) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) throw new Error("Custom date range requires YYYY-MM-DD dates");
+  const suffix = boundary === "start" ? "T00:00:00.000" : "T23:59:59.999";
+  const timestamp = new Date(`${value}${suffix}`).getTime();
+  if (!Number.isFinite(timestamp)) throw new Error(`Invalid custom date: ${value}`);
+  return timestamp;
 }

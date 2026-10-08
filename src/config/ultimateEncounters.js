@@ -1,118 +1,66 @@
 /**
- * Curated FFLogs Ultimate encounter registry.
+ * Supported Dawntrail Ultimate identities and their historical FFLogs fight
+ * encounter variants. `encounterId` is the current-Dawntrail boss ID; raw
+ * report-fight encounter IDs are resolved through
+ * `findUltimateVariantByEncounterId`.
  *
- * FFLogs report summaries can be grouped by zone, while detailed report fights
- * are filtered by encounter ID. The legacy Ultimates share zone 59; newer
- * Ultimates use their own zones.
+ * This registry recognizes report data only. It must not be used as the source
+ * of chart colors, phases, or other presentation behavior.
  */
 export const ULTIMATE_ENCOUNTERS = [
-  {
-    slug: "ucob",
-    displayName: "The Unending Coil of Bahamut",
-    zoneId: 59,
-    encounterId: 1073,
-    statisticsUrl: "https://www.fflogs.com/zone/statistics/59?boss=1073",
-  },
-  {
-    slug: "uwu",
-    displayName: "The Weapon's Refrain",
-    zoneId: 59,
-    encounterId: 1074,
-    statisticsUrl: "https://www.fflogs.com/zone/statistics/59?boss=1074",
-  },
-  {
-    slug: "tea",
-    displayName: "The Epic of Alexander",
-    zoneId: 59,
-    encounterId: 1075,
-    statisticsUrl: "https://www.fflogs.com/zone/statistics/59?boss=1075",
-  },
-  {
-    slug: "dsr",
-    displayName: "Dragonsong's Reprise",
-    zoneId: 59,
-    encounterId: 1076,
-    statisticsUrl: "https://www.fflogs.com/zone/statistics/59?boss=1076",
-  },
-  {
-    slug: "top",
-    displayName: "The Omega Protocol",
-    zoneId: 59,
-    encounterId: 1077,
-    statisticsUrl: "https://www.fflogs.com/zone/statistics/59?boss=1077",
-  },
-  {
-    slug: "fru",
-    displayName: "Futures Rewritten",
-    zoneId: 65,
-    encounterId: 1079,
-    statisticsUrl: "https://www.fflogs.com/zone/rankings/65?boss=1079",
-  },
-  {
-    slug: "dm",
-    displayName: "Dancing Mad",
-    zoneId: 76,
-    encounterId: 1085,
-    statisticsUrl: "https://www.fflogs.com/zone/statistics/76?boss=1085",
-  },
+  { slug: "ucob", displayName: "The Unending Coil of Bahamut", encounterId: 1073, variants: [[1039, "Stormblood"], [1047, "Shadowbringers"], [1060, "Endwalker"], [1073, "Dawntrail"]] },
+  { slug: "uwu", displayName: "The Weapon's Refrain", encounterId: 1074, variants: [[1042, "Stormblood"], [1048, "Shadowbringers"], [1061, "Endwalker"], [1074, "Dawntrail"]] },
+  { slug: "tea", displayName: "The Epic of Alexander", encounterId: 1075, variants: [[1050, "Shadowbringers"], [1062, "Endwalker"], [1075, "Dawntrail"]] },
+  { slug: "dsr", displayName: "Dragonsong's Reprise", encounterId: 1076, variants: [[1065, "Endwalker"], [1076, "Dawntrail"]] },
+  { slug: "top", displayName: "The Omega Protocol", encounterId: 1077, variants: [[1068, "Endwalker"], [1077, "Dawntrail"]] },
+  { slug: "fru", displayName: "Futures Rewritten", encounterId: 1079, variants: [[1079, "Dawntrail"]] },
+  { slug: "dm", displayName: "Dancing Mad", encounterId: 1085, variants: [[1085, "Dawntrail"]] },
 ];
 
-const ENCOUNTERS_BY_ID = new Map(
-  ULTIMATE_ENCOUNTERS.map((encounter) => [encounter.encounterId, encounter]),
+/** Shared report-zone names that require fight-detail encounter inspection. */
+export const SHARED_ULTIMATE_ZONE_NAMES = new Set(
+  ["Ultimates (Legacy)"].map((zoneName) => normalizeZoneName(zoneName)),
 );
 
-const ENCOUNTERS_BY_ZONE_ID = ULTIMATE_ENCOUNTERS.reduce((byZone, encounter) => {
-  const encounters = byZone.get(encounter.zoneId) || [];
-  encounters.push(encounter);
-  byZone.set(encounter.zoneId, encounters);
-  return byZone;
-}, new Map());
+const VARIANTS_BY_ID = new Map(
+  ULTIMATE_ENCOUNTERS.flatMap((ultimate) =>
+    ultimate.variants.map(([encounterId, expansion]) => [
+      encounterId,
+      { ...ultimate, encounterId, canonicalEncounterId: ultimate.encounterId, expansion },
+    ]),
+  ),
+);
+
+const ENCOUNTERS_BY_ZONE_NAME = new Map(
+  ULTIMATE_ENCOUNTERS.map((encounter) => [normalizeZoneName(encounter.displayName), encounter]),
+);
+
+/** Find a supported Ultimate by FFLogs fight encounter ID. */
+export function findUltimateVariantByEncounterId(encounterId) {
+  return VARIANTS_BY_ID.get(Number(encounterId)) || null;
+}
 
 /**
- * Find a supported Ultimate by FFLogs encounter ID.
- *
- * @param {number|string|null|undefined} encounterId
- * @returns {object|null}
+ * Backward-compatible canonical lookup. New classification code should use
+ * `findUltimateVariantByEncounterId` so historical variants stay distinct.
  */
 export function findUltimateByEncounterId(encounterId) {
-  return ENCOUNTERS_BY_ID.get(Number(encounterId)) || null;
+  const variant = findUltimateVariantByEncounterId(encounterId);
+  return variant && ULTIMATE_ENCOUNTERS.find((ultimate) => ultimate.slug === variant.slug);
 }
 
 /**
- * Return all supported Ultimates in a FFLogs zone.
- *
- * @param {number|string|null|undefined} zoneId
- * @returns {object[]}
+ * Return the specific Ultimate nominated by an exact FFLogs report-zone name.
+ * Shared and unknown zone names return no direct candidate and must be
+ * inspected through report details.
  */
-export function findUltimatesByZoneId(zoneId) {
-  return ENCOUNTERS_BY_ZONE_ID.get(Number(zoneId)) || [];
+export function findUltimateByZoneName(zoneName) {
+  return ENCOUNTERS_BY_ZONE_NAME.get(normalizeZoneName(zoneName)) || null;
 }
 
-/**
- * Group report summaries by supported Ultimate zones.
- *
- * Legacy Ultimate reports in zone 59 can contain multiple Ultimate encounters,
- * so those reports are candidates for each legacy Ultimate until report-detail
- * fight data narrows the exact encounter.
- *
- * @param {object[]} reports
- * @returns {object[]}
- */
-export function groupReportsByAvailableUltimates(reports = []) {
-  const groupsBySlug = new Map();
-
-  for (const report of reports || []) {
-    for (const ultimate of findUltimatesByZoneId(report?.zone?.id)) {
-      if (!groupsBySlug.has(ultimate.slug)) {
-        groupsBySlug.set(ultimate.slug, { ultimate, reports: [] });
-      }
-      groupsBySlug.get(ultimate.slug).reports.push(report);
-    }
-  }
-
-  return ULTIMATE_ENCOUNTERS
-    .filter((ultimate) => groupsBySlug.has(ultimate.slug))
-    .map((ultimate) => groupsBySlug.get(ultimate.slug));
+/** Return whether a report-zone name represents a known shared Ultimate bucket. */
+export function isSharedUltimateZoneName(zoneName) {
+  return SHARED_ULTIMATE_ZONE_NAMES.has(normalizeZoneName(zoneName));
 }
 
 /**
@@ -123,7 +71,11 @@ export function groupReportsByAvailableUltimates(reports = []) {
  * @returns {object[]}
  */
 export function filterFightsForUltimate(fights = [], encounterId) {
-  const ultimate = findUltimateByEncounterId(encounterId);
-  if (!ultimate) return [];
-  return (fights || []).filter((fight) => Number(fight?.encounterId) === ultimate.encounterId);
+  const targetEncounterId = Number(encounterId);
+  return (fights || []).filter((fight) => Number(fight?.encounterId) === targetEncounterId);
+}
+
+/** Normalize FFLogs zone names for exact, case-insensitive registry lookup. */
+function normalizeZoneName(zoneName) {
+  return String(zoneName || "").trim().toLocaleLowerCase();
 }

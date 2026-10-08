@@ -146,10 +146,14 @@ test("captureFflogsLiveData captures raw payloads and mapped summaries", async (
 
   const capture = await captureFflogsLiveData({
     accessToken: "token",
+    reportCode: "kzJ2jmRPdHv6rDGV",
     fetchImpl,
     capturedAt: "2026-08-14T00:00:00.000Z",
   });
 
+  const reportDetailRequest = JSON.parse(fetchImpl.calls[3].options.body);
+  assert.equal(reportDetailRequest.variables.code, "kzJ2jmRPdHv6rDGV");
+  assert.equal(capture.config.reportCode, "kzJ2jmRPdHv6rDGV");
   assert.equal(capture.raw.guild.data.guildData.guild.id, 112977);
   assert.equal(capture.mapped.currentUser.name, "Uploader");
   assert.equal(capture.mapped.guild.guildId, 112977);

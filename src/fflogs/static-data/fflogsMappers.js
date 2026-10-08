@@ -7,7 +7,7 @@ import { createRaidTeamIdentity } from "../../domain/models/raidTeam.js";
  * Map the current-user query payload into a compact app-owned user object.
  *
  * @param {object} payload
- * @returns {{id: number|string, name: string}|null}
+ * @returns {{id: number|string, name: string, guilds: object[]}|null}
  */
 export function mapCurrentUser(payload) {
   const currentUser = payload?.userData?.currentUser;
@@ -16,6 +16,9 @@ export function mapCurrentUser(payload) {
   return {
     id: currentUser.id,
     name: currentUser.name,
+    guilds: (currentUser.guilds || [])
+      .filter((guild) => guild?.id != null)
+      .map((guild) => ({ id: guild.id, name: guild.name, type: guild.type })),
   };
 }
 

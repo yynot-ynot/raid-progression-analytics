@@ -30,9 +30,15 @@ export function renderSankey(container, sankeyData, { title = "", colors = getCh
 
   // D3 is loaded by static script tags so the page stays backend-free.
   const d3 = globalThis.d3;
-  const width = Math.max(760, container.clientWidth || 960);
-  const height = 560;
-  const margin = { top: 34, right: 260, bottom: 24, left: 190 };
+  const width = Math.max(640, container.clientWidth || globalThis.innerWidth || 960);
+  const compact = width < 980;
+  const height = compact ? 640 : 580;
+  const margin = {
+    top: 28,
+    right: compact ? 116 : Math.min(360, Math.max(260, width * 0.2)),
+    bottom: 24,
+    left: compact ? 116 : Math.min(300, Math.max(210, width * 0.16)),
+  };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -43,12 +49,13 @@ export function renderSankey(container, sankeyData, { title = "", colors = getCh
     .attr("role", "img")
     .attr("aria-label", title || `${sankeyData.metricType} Sankey`);
 
-  if (title) {
+  if (title && compact) {
     svg
       .append("text")
-      .attr("x", 0)
+      .attr("x", width / 2)
       .attr("y", 18)
-      .attr("font-size", 15)
+      .attr("text-anchor", "middle")
+      .attr("font-size", 14)
       .attr("font-weight", 700)
       .text(title);
   }
@@ -96,6 +103,7 @@ export function renderSankey(container, sankeyData, { title = "", colors = getCh
     .attr("d", d3.sankeyLinkHorizontal())
     .attr("stroke", (link) => withOpacity(getNodeColor(link.target.id, colors), 0.48))
     .attr("stroke-width", (link) => Math.max(1, link.width))
+    .attr("data-tooltip", (link) => formatLinkTooltip(link, sankeyData.metricType))
     .on("mousemove", (event, link) => {
       tooltip
         .style("display", "block")
@@ -114,19 +122,22 @@ export function renderSankey(container, sankeyData, { title = "", colors = getCh
     .attr("y", (node) => node.y0)
     .attr("width", (node) => node.x1 - node.x0)
     .attr("height", (node) => Math.max(1, node.y1 - node.y0))
-    .attr("fill", (node) => getNodeColor(node.id, colors));
+    .attr("fill", (node) => getNodeColor(node.id, colors))
+    .attr("data-tooltip", (node) => formatNodeExportTooltip(node, sankeyData.metricType));
 
   graphLayer
     .append("g")
     .selectAll("text")
     .data(graph.nodes)
     .join("text")
-    .attr("x", (node) => (isRightSideNode(node.id) ? node.x1 + 8 : node.x0 - 8))
+    .attr("x", (node) => labelX(node, innerWidth, compact))
     .attr("y", (node) => (node.y0 + node.y1) / 2)
     .attr("dy", "0.35em")
-    .attr("text-anchor", (node) => (isRightSideNode(node.id) ? "start" : "end"))
-    .attr("font-size", 11)
-    .text((node) => `${node.id} (${node.label})`);
+    .attr("text-anchor", (node) => labelAnchor(node))
+    .attr("font-family", "Georgia, Times New Roman, serif")
+    .attr("font-size", compact ? 12 : 14)
+    .attr("font-weight", 400)
+    .text((node) => formatNodeLabel(node, compact));
 }
 
 /**
@@ -154,6 +165,61 @@ function isRightSideNode(nodeId) {
 }
 
 /**
+ * Keep Sankey labels inside the reserved SVG label gutters.
+ *
+ * @param {object} node
+ * @param {number} innerWidth
+ * @param {boolean} compact
+ * @returns {number}
+ */
+function labelX(node, innerWidth, compact) {
+  if (compact) {
+    return isRightSideNode(node.id) ? Math.min(innerWidth - 4, node.x1 + 8) : Math.max(4, node.x0 - 8);
+  }
+  return isRightSideNode(node.id) ? node.x1 + 8 : node.x0 - 8;
+}
+
+/**
+ * Select a text anchor that matches the reference-style node placement.
+ *
+ * @param {object} node
+ * @returns {"start"|"end"}
+ */
+function labelAnchor(node) {
+  return isRightSideNode(node.id) ? "start" : "end";
+}
+
+/**
+ * Format Sankey labels with the node role, duration/count, and percentage.
+ *
+ * @param {object} node
+ * @param {boolean} compact
+ * @returns {string}
+ */
+function formatNodeLabel(node, compact) {
+  if (compact) {
+    const percentage = node.label.match(/- ([\d.]+%)/)?.[1] || node.label;
+    if (node.id === "Meetings, Breaks and DCs") return `Meeting (${percentage})`;
+    return `${shortNodeName(node.id)} (${percentage})`;
+  }
+
+  if (node.id === "Total Time" || node.id === "Total Pulls") return `${node.id} (${node.label})`;
+  if (node.id === "Meetings, Breaks and DCs") return `Meetings, Breaks and DCs (${node.label})`;
+  if (node.id.endsWith("Total")) return `${shortNodeName(node.id)} Total (${node.label})`;
+  return `${shortNodeName(node.id)} Progression (${node.label})`;
+}
+
+/**
+ * Collapse full phase node names to P1/P2-style labels for dense chart text.
+ *
+ * @param {string} nodeId
+ * @returns {string}
+ */
+function shortNodeName(nodeId) {
+  return nodeId.split(" ")[0].split(":")[0];
+}
+
+/**
  * Convert a hex color to an rgba string.
  *
  * @param {string} color
@@ -178,12 +244,40 @@ function withOpacity(color, opacity) {
 function formatLinkTooltip(link, metricType) {
   const sourceValue = link.source?.value || 1;
   const percentage = ((link.value / sourceValue) * 100).toFixed(1);
+  const source = shortTooltipName(link.source?.id || "");
+  const target = shortTooltipName(link.target?.id || "");
 
   if (metricType === "Time") {
     const hours = Math.floor(link.value / 3600);
     const minutes = Math.floor((link.value % 3600) / 60);
-    return `${link.source.id} -> ${link.target.id} (${percentage}%): ${hours} hr ${String(minutes).padStart(2, "0")} min`;
+    return `${source} -> ${target}: ${hours}h ${String(minutes).padStart(2, "0")}m (${percentage}%)`;
   }
 
-  return `${link.source.id} -> ${link.target.id} (${percentage}%): ${link.value} pulls`;
+  return `${source} -> ${target}: ${link.value} pulls (${percentage}%)`;
+}
+
+/**
+ * Format node hover text for exported HTML chart snapshots.
+ *
+ * @param {object} node
+ * @param {"Time"|"Pulls"} metricType
+ * @returns {string}
+ */
+function formatNodeExportTooltip(node, metricType) {
+  const label = formatNodeLabel(node, false);
+  if (metricType === "Time") return label;
+  return label.replace("hr ", "pulls ");
+}
+
+/**
+ * Keep hover labels compact enough to scan without covering the chart.
+ *
+ * @param {string} nodeId
+ * @returns {string}
+ */
+function shortTooltipName(nodeId) {
+  if (nodeId === "Meetings, Breaks and DCs") return "Meeting";
+  if (nodeId === "Total Time") return "Total";
+  if (nodeId === "Total Pulls") return "Total";
+  return shortNodeName(nodeId);
 }

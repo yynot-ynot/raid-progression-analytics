@@ -1,0 +1,519 @@
+{
+  "source": "Planning/fflogs-discovery-reports.json",
+  "capturedAt": "2026-09-18T01:31:50.889Z",
+  "reportCount": 64,
+  "reports": [
+    {
+      "code": "nH6ym2MWN8axgG4F",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-05-12T23:55:00.674Z",
+      "endDate": "2023-05-13T04:28:55.791Z"
+    },
+    {
+      "code": "2tX86mCVgJkca9Kq",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-05-12T01:56:54.712Z",
+      "endDate": "2023-05-12T04:59:45.261Z"
+    },
+    {
+      "code": "pCYTGzrN4fA3P8wH",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-05-09T00:53:56.953Z",
+      "endDate": "2023-05-09T02:49:38.642Z"
+    },
+    {
+      "code": "r1QJBmknt2gpKGdj",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-05-08T00:05:47.756Z",
+      "endDate": "2023-05-08T05:18:00.048Z"
+    },
+    {
+      "code": "pQr8n2VWq4G9tDMT",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-05-05T23:25:37.963Z",
+      "endDate": "2023-05-06T04:10:23.322Z"
+    },
+    {
+      "code": "qmcJBYfaz2GVbZrA",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-05-05T00:16:20.938Z",
+      "endDate": "2023-05-05T05:16:10.838Z"
+    },
+    {
+      "code": "WwvLzPCcDBQxn1Kf",
+      "name": "The Omega Protocol (4/23 reupload)",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-24T01:08:35.930Z",
+      "endDate": "2023-04-24T05:10:18.486Z"
+    },
+    {
+      "code": "M7XRcDBtWV3yK4Cm",
+      "name": "The Omega Protocol (CLEAR)",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-26T02:04:38.148Z",
+      "endDate": "2023-04-26T05:37:17.563Z"
+    },
+    {
+      "code": "8gZd9JYR4pzTbCKq",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-25T00:58:47.898Z",
+      "endDate": "2023-04-25T05:07:04.888Z"
+    },
+    {
+      "code": "KA2QnabD1gZLJc4F",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-22T23:46:47.741Z",
+      "endDate": "2023-04-23T04:35:53.218Z"
+    },
+    {
+      "code": "vt3J61d9GyBbmLgY",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-21T22:31:49.677Z",
+      "endDate": "2023-04-22T05:05:49.327Z"
+    },
+    {
+      "code": "LxzyQdmTfq1KtDWb",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-20T23:21:29.805Z",
+      "endDate": "2023-04-21T05:04:45.232Z"
+    },
+    {
+      "code": "ZCRnYy8cmNfKaFtJ",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-20T01:05:10.639Z",
+      "endDate": "2023-04-20T04:51:06.523Z"
+    },
+    {
+      "code": "CmHGpD1qY69xVFZR",
+      "name": "The Omega Protocol (4/18 reupload)",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-19T03:29:53.795Z",
+      "endDate": "2023-04-19T05:00:09.335Z"
+    },
+    {
+      "code": "wD7F4gCzLb9jHxQq",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-18T02:33:25.727Z",
+      "endDate": "2023-04-18T05:10:42.045Z"
+    },
+    {
+      "code": "7t4r6Bb9xVQgfnPZ",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-17T00:02:14.373Z",
+      "endDate": "2023-04-17T04:52:22.445Z"
+    },
+    {
+      "code": "jkmgT8D9wV3vKXBn",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-15T23:49:19.420Z",
+      "endDate": "2023-04-16T05:15:18.891Z"
+    },
+    {
+      "code": "MdkcfLKVjW1pqFPB",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-15T00:04:45.047Z",
+      "endDate": "2023-04-15T04:57:00.792Z"
+    },
+    {
+      "code": "CXgvhW9BT1rbN3J8",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-14T02:07:18.566Z",
+      "endDate": "2023-04-14T04:49:34.989Z"
+    },
+    {
+      "code": "ZghB8mArq7j2JbCF",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-12T01:57:26.871Z",
+      "endDate": "2023-04-12T04:00:07.968Z"
+    },
+    {
+      "code": "Hbp6jmBWn7K2TdNX",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-11T02:47:38.560Z",
+      "endDate": "2023-04-11T04:57:10.090Z"
+    },
+    {
+      "code": "bAcazC8nNdH4mPfJ",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-09T23:59:14.670Z",
+      "endDate": "2023-04-10T05:04:56.470Z"
+    },
+    {
+      "code": "Mg7R46ntZkqyG8rc",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-08T23:41:25.942Z",
+      "endDate": "2023-04-09T05:09:47.633Z"
+    },
+    {
+      "code": "z8Y13CjRfKGr7mLb",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-07T22:48:20.569Z",
+      "endDate": "2023-04-08T04:58:33.364Z"
+    },
+    {
+      "code": "1jtgqPKZTDdLcbVp",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-07T00:29:00.589Z",
+      "endDate": "2023-04-07T05:00:52.452Z"
+    },
+    {
+      "code": "mhHNb1GTQz2xpL8F",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-03T01:56:12.946Z",
+      "endDate": "2023-04-03T05:34:25.317Z"
+    },
+    {
+      "code": "6yBFgcmdxYVNRHbK",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-04-01T23:52:15.889Z",
+      "endDate": "2023-04-02T05:31:26.102Z"
+    },
+    {
+      "code": "wN2JTyY7nARqjKDG",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-31T23:33:09.013Z",
+      "endDate": "2023-04-01T04:16:01.608Z"
+    },
+    {
+      "code": "N4vdW7DVRb2PMnhq",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-31T01:28:07.781Z",
+      "endDate": "2023-03-31T04:55:47.914Z"
+    },
+    {
+      "code": "CbTQmcZDdG3KA4yV",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-28T02:40:47.212Z",
+      "endDate": "2023-03-28T04:42:19.295Z"
+    },
+    {
+      "code": "7mhT3PRbFjKMqfaX",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-25T23:57:16.892Z",
+      "endDate": "2023-03-26T05:15:54.569Z"
+    },
+    {
+      "code": "hrFZjtxkYHGLfKcp",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-25T01:59:18.483Z",
+      "endDate": "2023-03-25T05:22:14.744Z"
+    },
+    {
+      "code": "JgVqWtrQTmpdAR62",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-24T01:47:54.907Z",
+      "endDate": "2023-03-24T04:46:09.877Z"
+    },
+    {
+      "code": "4TQDKbLdf8hMCAcj",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-21T02:52:08.591Z",
+      "endDate": "2023-03-21T04:46:14.538Z"
+    },
+    {
+      "code": "Tmf4W6Vraw73dx8A",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-19T00:02:35.076Z",
+      "endDate": "2023-03-19T04:58:05.997Z"
+    },
+    {
+      "code": "rwQ3AWDpy1dhB2CZ",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-18T01:59:42.368Z",
+      "endDate": "2023-03-18T04:43:47.889Z"
+    },
+    {
+      "code": "3kdnQHWg4K8RzwNM",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-17T01:25:38.687Z",
+      "endDate": "2023-03-17T05:03:59.827Z"
+    },
+    {
+      "code": "N9afXmhbJcZnKgzV",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-14T02:22:31.065Z",
+      "endDate": "2023-03-14T05:02:27.862Z"
+    },
+    {
+      "code": "ApBcyLRZg38tVPmK",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-12T01:26:51.739Z",
+      "endDate": "2023-03-12T05:59:50.651Z"
+    },
+    {
+      "code": "AtZhfy6QXmWBqDgp",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-11T02:45:54.004Z",
+      "endDate": "2023-03-11T05:28:58.004Z"
+    },
+    {
+      "code": "zKFgjZkM3CRcwq7Q",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-10T02:54:30.255Z",
+      "endDate": "2023-03-10T06:01:22.139Z"
+    },
+    {
+      "code": "mJyXRdpB6LaFrftM",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-07T03:56:32.690Z",
+      "endDate": "2023-03-07T05:51:10.669Z"
+    },
+    {
+      "code": "gR3wAzMhcZWDT2fX",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-05T01:04:50.401Z",
+      "endDate": "2023-03-05T06:56:05.576Z"
+    },
+    {
+      "code": "yCA7Baf6FT19zVvD",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-04T03:10:58.086Z",
+      "endDate": "2023-03-04T05:56:34.327Z"
+    },
+    {
+      "code": "ZQRGd3vftLpxHD9T",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-03T03:32:03.770Z",
+      "endDate": "2023-03-03T07:29:20.494Z"
+    },
+    {
+      "code": "WAgxJPmQdYr7R6pa",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-03-01T05:53:59.750Z",
+      "endDate": "2023-03-01T06:16:50.465Z"
+    },
+    {
+      "code": "8qpPjJ4z916b2rVF",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-28T04:01:53.548Z",
+      "endDate": "2023-02-28T06:06:18.390Z"
+    },
+    {
+      "code": "QB2AYXbvahjMJDxn",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-26T00:58:30.030Z",
+      "endDate": "2023-02-26T07:34:27.661Z"
+    },
+    {
+      "code": "Hc4NjCaX91YT8tgk",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-25T03:14:50.547Z",
+      "endDate": "2023-02-25T07:22:46.600Z"
+    },
+    {
+      "code": "PTbYpczykBxNWnaX",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-24T02:43:50.451Z",
+      "endDate": "2023-02-24T06:06:36.853Z"
+    },
+    {
+      "code": "CY4ALt2Tn6Xz1HDa",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-21T04:03:44.742Z",
+      "endDate": "2023-02-21T06:27:04.853Z"
+    },
+    {
+      "code": "YB9Mb4VwCvfWdj6q",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-19T02:11:43.460Z",
+      "endDate": "2023-02-19T06:15:31.089Z"
+    },
+    {
+      "code": "db24wHXcTCjKAgmD",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-18T04:07:34.376Z",
+      "endDate": "2023-02-18T06:02:40.649Z"
+    },
+    {
+      "code": "Qvzt4VJ1gfjArb7p",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-17T03:08:23.348Z",
+      "endDate": "2023-02-17T06:06:13.377Z"
+    },
+    {
+      "code": "AyJMtCVqNfpkwhdr",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-12T01:16:21.447Z",
+      "endDate": "2023-02-12T05:52:17.748Z"
+    },
+    {
+      "code": "QfJhbcYdaNgvZjqr",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-11T03:19:04.067Z",
+      "endDate": "2023-02-11T06:00:46.021Z"
+    },
+    {
+      "code": "kQ31pJAn4PVf7Z6a",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-10T03:05:27.260Z",
+      "endDate": "2023-02-10T05:59:31.691Z"
+    },
+    {
+      "code": "Ln4rvkxMRwVqQKF2",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-05T03:09:09.002Z",
+      "endDate": "2023-02-05T05:29:56.712Z"
+    },
+    {
+      "code": "mwzxb4pNDCgqYXLJ",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-04T03:16:05.552Z",
+      "endDate": "2023-02-04T05:58:08.508Z"
+    },
+    {
+      "code": "zWaByQgq4K93Zv6f",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-02-03T02:49:24.527Z",
+      "endDate": "2023-02-03T05:55:41.651Z"
+    },
+    {
+      "code": "KRaFNT6Jn3LDGq1t",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-01-29T00:13:32.322Z",
+      "endDate": "2023-01-29T05:18:17.830Z"
+    },
+    {
+      "code": "2RdB3V4rPgycZWDX",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-01-28T03:12:28.108Z",
+      "endDate": "2023-01-28T05:59:09.337Z"
+    },
+    {
+      "code": "cN79bQV3ZrRmfhgX",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-01-25T00:20:34.684Z",
+      "endDate": "2023-01-25T02:24:49.681Z"
+    },
+    {
+      "code": "JzC3ZhLF18Gnf4Qd",
+      "name": "The Omega Protocol",
+      "zoneId": 53,
+      "zoneName": "The Omega Protocol",
+      "startDate": "2023-01-27T03:11:11.120Z",
+      "endDate": "2023-01-27T06:02:20.083Z"
+    }
+  ]
+}

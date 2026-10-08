@@ -29,9 +29,14 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
 
   // D3 is loaded by static script tags so the page stays backend-free.
   const d3 = globalThis.d3;
-  const width = Math.max(900, container.clientWidth || 960);
-  const height = 520;
-  const margin = { top: 44, right: 36, bottom: 112, left: 76 };
+  const width = Math.max(640, container.clientWidth || globalThis.innerWidth || 960);
+  const height = 620;
+  const margin = {
+    top: 54,
+    right: width < 760 ? 20 : 36,
+    bottom: width < 760 ? 148 : 174,
+    left: width < 760 ? 58 : 76,
+  };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   const series = chartData.series;
@@ -43,15 +48,17 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .append("svg")
     .attr("viewBox", `0 0 ${width} ${height}`)
     .attr("role", "img")
-    .attr("aria-label", title || chartData.title || "Stacked bar chart");
+    .attr("aria-label", title || chartData.title || "Stacked bar chart")
+    .attr("font-weight", 400);
 
   svg
     .append("text")
-    .attr("x", 0)
-    .attr("y", 20)
-    .attr("font-size", 15)
+    .attr("x", width / 2)
+    .attr("y", 26)
+    .attr("text-anchor", "middle")
+    .attr("font-size", 18)
     .attr("font-weight", 700)
-    .text(title || chartData.title);
+    .text(chartData.title || title);
 
   const chartLayer = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
   const x = d3
@@ -65,6 +72,11 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .nice()
     .range([innerHeight, 0]);
   const stackedRows = d3.stack().keys(series)(chartData.rows);
+  const tooltip = d3
+    .select(container)
+    .append("div")
+    .attr("class", "chart-tooltip")
+    .style("display", "none");
 
   chartLayer
     .append("g")
@@ -87,7 +99,16 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .attr("width", x.bandwidth())
     .attr("stroke", (point) => (point.key === "Meeting" ? "#111827" : "#ffffff"))
     .attr("stroke-width", (point) => (point.key === "Meeting" ? 1.5 : 0.7))
-    .attr("stroke-dasharray", (point) => (point.key === "Meeting" ? "4 3" : null));
+    .attr("stroke-dasharray", (point) => (point.key === "Meeting" ? "4 3" : null))
+    .attr("data-tooltip", (point) => formatBarExportTooltip(point.data, series, chartData.metricType))
+    .on("mousemove", (event, point) => {
+      renderBarTooltip(tooltip.node(), point.data, series, colors, chartData.metricType);
+      tooltip
+        .style("display", "block")
+        .style("left", `${event.offsetX + 16}px`)
+        .style("top", `${event.offsetY + 16}px`);
+    })
+    .on("mouseleave", () => tooltip.style("display", "none"));
 
   chartLayer
     .append("g")
@@ -105,9 +126,10 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
   chartLayer
     .append("text")
     .attr("x", innerWidth / 2)
-    .attr("y", innerHeight + 74)
+    .attr("y", innerHeight + 72)
     .attr("text-anchor", "middle")
-    .attr("font-size", 13)
+    .attr("font-size", 14)
+    .attr("font-weight", 400)
     .text("Date");
 
   chartLayer
@@ -116,10 +138,11 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .attr("x", -innerHeight / 2)
     .attr("y", -52)
     .attr("text-anchor", "middle")
-    .attr("font-size", 13)
+    .attr("font-size", 14)
+    .attr("font-weight", 400)
     .text(chartData.yLabel);
 
-  renderLegend(svg, series, colors, width, height);
+  renderLegend(svg, series, colors, margin.left + innerWidth / 2, margin.top + innerHeight);
 }
 
 /**
@@ -128,29 +151,46 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
  * @param {object} svg
  * @param {string[]} series
  * @param {object} colors
- * @param {number} width
- * @param {number} height
+ * @param {number} plotCenterX
+ * @param {number} plotBottomY
  */
-function renderLegend(svg, series, colors, width, height) {
+function renderLegend(svg, series, colors, plotCenterX, plotBottomY) {
+  const itemWidths = series.map((key) => (key === "Meeting" ? 238 : 72));
+  const legendWidth = itemWidths.reduce((total, value) => total + value, 0);
   const legend = svg
     .append("g")
-    .attr("transform", `translate(${Math.max(0, (width - series.length * 112) / 2)},${height - 38})`);
+    .attr("transform", `translate(${Math.max(0, plotCenterX - legendWidth / 2)},${plotBottomY + 142})`)
+    .attr("font-weight", 400);
+
+  legend
+    .append("text")
+    .attr("x", legendWidth / 2)
+    .attr("y", -26)
+    .attr("text-anchor", "middle")
+    .attr("font-size", 12)
+    .attr("font-weight", 400)
+    .text("Phases");
+
+  let offset = 0;
 
   series.forEach((key, index) => {
-    const item = legend.append("g").attr("transform", `translate(${index * 112},0)`);
+    const item = legend.append("g").attr("transform", `translate(${offset},0)`);
     item
       .append("rect")
-      .attr("width", 12)
-      .attr("height", 12)
-      .attr("fill", getSeriesColor(key, colors))
+      .attr("width", 18)
+      .attr("height", 10)
+      .attr("fill", key === "Meeting" ? "none" : getSeriesColor(key, colors))
       .attr("stroke", key === "Meeting" ? "#111827" : "none")
-      .attr("stroke-dasharray", key === "Meeting" ? "4 3" : null);
+      .attr("stroke-width", key === "Meeting" ? 1.6 : null)
+      .attr("stroke-dasharray", key === "Meeting" ? "5 3" : null);
     item
       .append("text")
-      .attr("x", 18)
+      .attr("x", 26)
       .attr("y", 10)
-      .attr("font-size", 11)
-      .text(key === "Meeting" ? "Meetings, breaks, and DCs" : key);
+      .attr("font-size", 13)
+      .attr("font-weight", 400)
+      .text(key === "Meeting" ? "Meetings, breaks, and DCs" : shortSeriesLabel(key));
+    offset += itemWidths[index];
   });
 }
 
@@ -175,6 +215,133 @@ function getSeriesColor(key, colors) {
   if (colors[key]) return colors[key];
   const shortPhase = key.split(":")[0];
   return colors[shortPhase] || "#808080";
+}
+
+/**
+ * Use reference-style compact legend labels, e.g. P1 instead of P1: Kefka.
+ *
+ * @param {string} key
+ * @returns {string}
+ */
+function shortSeriesLabel(key) {
+  return key.split(":")[0];
+}
+
+/**
+ * Render one day's full phase split in the B5 tooltip layout.
+ *
+ * @param {HTMLElement} tooltip
+ * @param {object} row
+ * @param {string[]} series
+ * @param {object} colors
+ * @param {"Time"|"Pulls"} metricType
+ */
+function renderBarTooltip(tooltip, row, series, colors, metricType) {
+  if (!tooltip) return;
+  tooltip.replaceChildren();
+
+  const total = Number(row.Total || 0);
+  const date = document.createElement("div");
+  date.className = "chart-tooltip-date";
+  date.textContent = `${formatTooltipDate(row.Date || row.DisplayDate)} (${formatTooltipValue(total, metricType)})`;
+  tooltip.append(date);
+
+  const splitRows = series
+    .map((key) => [key, Number(row[key] || 0)])
+    .filter(([, value]) => value > 0);
+
+  for (const [key, value] of splitRows) {
+    const line = document.createElement("div");
+    line.className = "chart-tooltip-row";
+
+    const dot = document.createElement("span");
+    dot.className = "chart-tooltip-dot";
+    dot.style.background = getSeriesColor(key, colors);
+
+    const phase = document.createElement("span");
+    phase.textContent = shortSeriesLabel(key);
+
+    const percentage = document.createElement("span");
+    percentage.className = "chart-tooltip-pct";
+    percentage.textContent = formatTooltipPercentage(value, total);
+
+    const formattedValue = document.createElement("span");
+    formattedValue.className = "chart-tooltip-value";
+    formattedValue.textContent = formatTooltipValue(value, metricType);
+
+    line.append(dot, phase, percentage, formattedValue);
+    tooltip.append(line);
+  }
+}
+
+/**
+ * Format one day's phase split as export-friendly tooltip text.
+ *
+ * The app uses rich DOM for the live B5 tooltip, while HTML snapshots store
+ * this plain value in the SVG so their tiny inline script can recreate hover.
+ *
+ * @param {object} row
+ * @param {string[]} series
+ * @param {"Time"|"Pulls"} metricType
+ * @returns {string}
+ */
+function formatBarExportTooltip(row, series, metricType) {
+  const total = Number(row.Total || 0);
+  const splitLines = series
+    .map((key) => [key, Number(row[key] || 0)])
+    .filter(([, value]) => value > 0)
+    .map(
+      ([key, value]) =>
+        `${shortSeriesLabel(key)} ${formatTooltipPercentage(value, total)} ${formatTooltipValue(value, metricType)}`,
+    );
+
+  return [`${formatTooltipDate(row.Date || row.DisplayDate)} (${formatTooltipValue(total, metricType)})`, ...splitLines].join(
+    "\n",
+  );
+}
+
+/**
+ * Format tooltip dates as YYYY-MM-DD.
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+function formatTooltipDate(value) {
+  const [year, month, day] = String(value || "")
+    .replaceAll("-", "/")
+    .split("/")
+    .map((part) => part.padStart(2, "0"));
+  if (!year || !month || !day) return String(value || "");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Format tooltip values in compact chart units.
+ *
+ * @param {number} value
+ * @param {"Time"|"Pulls"} metricType
+ * @returns {string}
+ */
+function formatTooltipValue(value, metricType) {
+  if (metricType === "Pulls") return `${Math.round(value)} pulls`;
+
+  const totalMinutes = Math.round(value * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  return `${minutes}m`;
+}
+
+/**
+ * Format a phase's share of the hovered day total.
+ *
+ * @param {number} value
+ * @param {number} total
+ * @returns {string}
+ */
+function formatTooltipPercentage(value, total) {
+  if (!Number.isFinite(total) || total <= 0) return "0.0%";
+  return `${((value / total) * 100).toFixed(1)}%`;
 }
 
 /**

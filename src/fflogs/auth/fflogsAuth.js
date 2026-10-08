@@ -24,6 +24,7 @@ export function buildAuthorizeUrl({
   redirectUri,
   codeChallenge,
   state,
+  scopes = FFLOGS_CONFIG.scopes,
 }) {
   const url = new URL(authorizeUrl);
   url.searchParams.set("response_type", "code");
@@ -32,6 +33,7 @@ export function buildAuthorizeUrl({
   url.searchParams.set("code_challenge", codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
   url.searchParams.set("state", state);
+  if (Array.isArray(scopes) && scopes.length) url.searchParams.set("scope", scopes.join(" "));
   return url.toString();
 }
 
@@ -65,6 +67,7 @@ export async function prepareLogin({
       redirectUri,
       codeChallenge,
       state,
+      scopes: config.scopes,
     }),
   };
 }

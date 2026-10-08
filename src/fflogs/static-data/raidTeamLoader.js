@@ -114,32 +114,106 @@ export async function loadReportPage({
 }
 
 /**
- * Load every available report page up to a defensive maximum.
+ * Load every available FFLogs report page.
  *
  * @param {object} params
+ * @param {(progress: {page: number, totalPages: number|null, reports: object[], pagesFetched: number, reportsFetched: number}) => void|Promise<void>} [params.onPage]
  * @returns {Promise<{reports: object[], pagination: object|null, pagesFetched: number}>}
  */
 export async function loadAllReports({
   config = RAID_TEAM_CONFIG,
   limit = 100,
-  maxPages = 100,
   queryFflogs = defaultQueryFflogs,
+  onPage = null,
 } = {}) {
-  const reports = [];
-  let page = 1;
-  let lastPageResult = null;
+  const firstPageResult = await loadReportPage({ config, page: 1, limit, queryFflogs });
+  const pageResults = new Map([[1, firstPageResult]]);
+  let reportsFetched = 0;
+  const totalPages = Number.isFinite(Number(firstPageResult.lastPage))
+    ? Math.max(1, Number(firstPageResult.lastPage))
+    : null;
 
-  while (page <= maxPages) {
-    lastPageResult = await loadReportPage({ config, page, limit, queryFflogs });
-    reports.push(...lastPageResult.reports);
-    if (!lastPageResult.hasMorePages) break;
-    page += 1;
+  if (totalPages != null) {
+    // FFLogs pages are assumed newest-first. Hold page 1 while a bounded
+    // window fetches from the oldest page backward, then release contiguous
+    // pages in chronological order to downstream detail workers.
+    const pending = new Map();
+    let nextPageToRequest = totalPages;
+    let nextPageToRelease = totalPages;
+    let releasedPages = 0;
+    const startPage = (page) => {
+      pending.set(
+        page,
+        loadReportPage({ config, page, limit, queryFflogs }).then((result) => ({ page, result })),
+      );
+    };
+
+    while (nextPageToRequest >= 2 && pending.size < 3) startPage(nextPageToRequest--);
+    while (pending.size) {
+      const { page, result } = await Promise.race(pending.values());
+      pending.delete(page);
+      pageResults.set(page, result);
+      while (nextPageToRequest >= 2 && pending.size < 3) startPage(nextPageToRequest--);
+      while (nextPageToRelease >= 2 && pageResults.has(nextPageToRelease)) {
+        const released = pageResults.get(nextPageToRelease);
+        reportsFetched += released.reports.length;
+        releasedPages += 1;
+        await onPage?.({
+          page: nextPageToRelease,
+          totalPages,
+          reports: released.reports,
+          pagesFetched: releasedPages,
+          reportsFetched,
+        });
+        nextPageToRelease -= 1;
+      }
+    }
+    // Page one supplied pagination metadata and is newest, so release it last.
+    reportsFetched += firstPageResult.reports.length;
+    releasedPages += 1;
+    await onPage?.({
+      page: 1,
+      totalPages,
+      reports: firstPageResult.reports,
+      pagesFetched: releasedPages,
+      reportsFetched,
+    });
+  } else {
+    // Retain a sequential fallback when FFLogs does not expose last_page.
+    let page = 1;
+    let result = firstPageResult;
+    reportsFetched = result.reports.length;
+    await onPage?.({
+      page,
+      totalPages: null,
+      reports: result.reports,
+      pagesFetched: 1,
+      reportsFetched,
+    });
+    while (result.hasMorePages) {
+      page += 1;
+      result = await loadReportPage({ config, page, limit, queryFflogs });
+      pageResults.set(page, result);
+      reportsFetched += result.reports.length;
+      await onPage?.({
+        page,
+        totalPages: null,
+        reports: result.reports,
+        pagesFetched: pageResults.size,
+        reportsFetched,
+      });
+    }
   }
+
+  const reports = [...pageResults.entries()]
+    .sort(([leftPage], [rightPage]) => leftPage - rightPage)
+    .flatMap(([, result]) => result.reports);
+  const lastPageResult = pageResults.get(totalPages ?? pageResults.size) || firstPageResult;
 
   return {
     reports,
     pagination: lastPageResult,
-    pagesFetched: page,
+    pagesFetched: pageResults.size,
   };
 }
 
@@ -236,25 +310,34 @@ export function trimReportDetailAfterFirstClear(detail) {
 }
 
 /**
- * Load report details chronologically and stop once the first clear is found.
+ * Load all selected report details concurrently, then keep chronological data
+ * only through the first clear. Parallel fetching makes the selected-Ultimate
+ * UI responsive; the first-clear rule remains an output-data boundary.
  *
  * @param {object} params
+ * @param {(progress: {current: number, total: number, report: object}) => void} [params.onReportProgress]
  * @returns {Promise<{reports: object[], reportDetails: object[], firstClearPull: object|null}>}
  */
 export async function loadReportDetailsUntilFirstClear({
   reports = [],
   loadReportDetail,
   shouldKeepDetail = (detail) => Boolean(detail),
+  onReportProgress = null,
 } = {}) {
   const loadedReports = [];
   const reportDetails = [];
   let firstClearPull = null;
+  const sortedReports = sortReportsByStartTime(reports);
 
-  for (const report of sortReportsByStartTime(reports)) {
+  let completedRequests = 0;
+  for (const report of sortedReports) {
     const detail = await loadReportDetail(report);
+    completedRequests += 1;
+    onReportProgress?.({ current: completedRequests, total: sortedReports.length, report });
     if (!shouldKeepDetail(detail)) continue;
 
     const trimmed = trimReportDetailAfterFirstClear(detail);
+
     if (shouldKeepDetail(trimmed.detail)) {
       loadedReports.push(report);
       reportDetails.push(trimmed.detail);
@@ -279,7 +362,6 @@ export async function loadRaidTeamData({
   queryFflogs = defaultQueryFflogs,
   currentUser = null,
   reportLimit = 100,
-  maxReportPages = 100,
 } = {}) {
   let team = null;
   if (config.guildId != null) {
@@ -303,7 +385,6 @@ export async function loadRaidTeamData({
   const { reports } = await loadAllReports({
     config,
     limit: reportLimit,
-    maxPages: maxReportPages,
     queryFflogs,
   });
 

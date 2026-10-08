@@ -65,6 +65,7 @@ export async function rawFflogsQuery({
 export async function captureFflogsLiveData({
   accessToken,
   config = RAID_TEAM_CONFIG,
+  reportCode = null,
   reportLimit = 1,
   includeReportDetail = true,
   fetchImpl = globalThis.fetch,
@@ -95,13 +96,13 @@ export async function captureFflogsLiveData({
   });
 
   const mappedReportPage = mapReportPagination(reportPageRaw.data?.reportData?.reports);
-  const firstReportCode = mappedReportPage.reports[0]?.code || null;
+  const detailReportCode = reportCode || mappedReportPage.reports[0]?.code || null;
   const reportDetailRaw =
-    includeReportDetail && firstReportCode
+    includeReportDetail && detailReportCode
       ? await rawFflogsQuery({
           query: REPORT_FIGHTS_QUERY,
           variables: {
-            code: firstReportCode,
+            code: detailReportCode,
             allowUnlisted: false,
             encounterId: config.encounterId ?? null,
             difficulty: config.difficulty ?? null,
@@ -123,6 +124,7 @@ export async function captureFflogsLiveData({
       encounterId: config.encounterId,
       difficulty: config.difficulty,
       killType: config.killType,
+      reportCode: detailReportCode,
       reportLimit,
       includeReportDetail,
     },

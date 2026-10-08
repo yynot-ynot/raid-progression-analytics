@@ -5,6 +5,11 @@ query CurrentFflogsUser {
     currentUser {
       id
       name
+      guilds {
+        id
+        name
+        type
+      }
     }
   }
 }

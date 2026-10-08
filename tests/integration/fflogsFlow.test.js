@@ -223,7 +223,7 @@ test("loadGuildById resolves configured guild 112977", async () => {
   assert.equal(queryFflogs.calls[0].query, GUILD_BY_ID_QUERY);
 });
 
-test("loadAllReports retrieves pages until has_more_pages is false", async () => {
+test("loadAllReports retrieves every page exposed by FFLogs pagination", async () => {
   const queryFflogs = createQueryStub([
     {
       match: "RaidTeamReports",
@@ -241,6 +241,57 @@ test("loadAllReports retrieves pages until has_more_pages is false", async () =>
   assert.equal(pagesFetched, 2);
   assert.equal(queryFflogs.calls[0].query, RAID_TEAM_REPORTS_QUERY);
   assert.equal(queryFflogs.calls[0].variables.guildTagId, 9001);
+});
+
+test("loadAllReports honors last_page when has_more_pages stops early", async () => {
+  const queryFflogs = createQueryStub([
+    {
+      match: "RaidTeamReports",
+      response: ({ variables }) => sampleReportPage({ page: variables.page, hasMorePages: false }),
+    },
+  ]);
+
+  const { reports, pagesFetched } = await loadAllReports({
+    config: { guildId: 112977 },
+    limit: 1,
+    queryFflogs,
+  });
+
+  assert.equal(reports.length, 2);
+  assert.equal(pagesFetched, 2);
+  assert.deepEqual(queryFflogs.calls.map((call) => call.variables.page), [1, 2]);
+});
+
+test("loadAllReports reports each fetched page while preserving final page order", async () => {
+  const updates = [];
+  const queryFflogs = createQueryStub([
+    {
+      match: "RaidTeamReports",
+      response: ({ variables }) => {
+        const payload = sampleReportPage({ page: variables.page, hasMorePages: false });
+        payload.reportData.reports.data[0].code = `REPORT${variables.page}`;
+        payload.reportData.reports.current_page = variables.page;
+        payload.reportData.reports.last_page = 3;
+        payload.reportData.reports.total = 3;
+        return payload;
+      },
+    },
+  ]);
+
+  const { reports, pagesFetched } = await loadAllReports({
+    config: { guildId: 112977 },
+    limit: 1,
+    queryFflogs,
+    onPage: (progress) => updates.push(progress),
+  });
+
+  assert.equal(pagesFetched, 3);
+  // Page one establishes `last_page`; the rolling window then starts at the
+  // oldest page while preserving chronological releases for detail loading.
+  assert.deepEqual(queryFflogs.calls.map((call) => call.variables.page), [1, 3, 2]);
+  assert.deepEqual(reports.map((report) => report.code), ["REPORT1", "REPORT2", "REPORT3"]);
+  assert.deepEqual(updates.map((update) => update.page), [3, 2, 1]);
+  assert.equal(updates.at(-1).reportsFetched, 3);
 });
 
 test("loadReportFights fetches fights, players, phases, and normalized pulls", async () => {

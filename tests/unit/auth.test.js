@@ -52,6 +52,7 @@ test("buildAuthorizeUrl includes all required FFLogs OAuth params", () => {
     redirectUri: "http://localhost:8080/",
     codeChallenge: "challenge",
     state: "state",
+    scopes: ["view-user-profile"],
   });
 
   const url = new URL(authorizeUrl);
@@ -62,6 +63,7 @@ test("buildAuthorizeUrl includes all required FFLogs OAuth params", () => {
   assert.equal(url.searchParams.get("code_challenge"), "challenge");
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
   assert.equal(url.searchParams.get("state"), "state");
+  assert.equal(url.searchParams.get("scope"), "view-user-profile");
 });
 
 test("prepareLogin stores verifier and state in session storage", async () => {
@@ -77,6 +79,7 @@ test("prepareLogin stores verifier and state in session storage", async () => {
   assert.equal(storage.getItem(PKCE_VERIFIER_KEY), "a".repeat(64));
   assert.equal(storage.getItem(OAUTH_STATE_KEY), "state-value");
   assert.match(prepared.authorizeUrl, /code_challenge_method=S256/);
+  assert.match(prepared.authorizeUrl, /scope=view-user-profile/);
 });
 
 test("parseOAuthCallback reads success and error params", () => {

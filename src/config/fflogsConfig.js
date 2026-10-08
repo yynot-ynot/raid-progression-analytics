@@ -12,6 +12,7 @@ export const FFLOGS_CONFIG = Object.freeze({
   redirectUri: null,
   clientType: "public",
   flow: "pkce",
+  scopes: ["view-user-profile"],
 });
 
 /**

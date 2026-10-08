@@ -6,7 +6,8 @@
   "scripts": {
     "capture:fflogs": "node scripts/validate-fixtures/capture-fflogs-live.js",
     "serve": "python3 -m http.server 8000",
-    "test": "node --test"
+    "test": "node --test tests/unit/*.test.js tests/integration/*.test.js",
+    "test:fflogs-live-report": "node --test tests/live/fflogsReportTriage.test.js"
   },
   "engines": {
     "node": ">=20"

@@ -78,10 +78,22 @@ function sampleReport() {
   };
 }
 
-test("mapCurrentUser returns compact current user model", () => {
+test("mapCurrentUser retains the guild membership needed for automatic source selection", () => {
   assert.deepEqual(
-    mapCurrentUser({ userData: { currentUser: { id: 1, name: "Uploader" } } }),
-    { id: 1, name: "Uploader" },
+    mapCurrentUser({
+      userData: {
+        currentUser: {
+          id: 1,
+          name: "Uploader",
+          guilds: [{ id: 112977, name: "Progression Static", type: "1" }],
+        },
+      },
+    }),
+    {
+      id: 1,
+      name: "Uploader",
+      guilds: [{ id: 112977, name: "Progression Static", type: "1" }],
+    },
   );
 });
 
