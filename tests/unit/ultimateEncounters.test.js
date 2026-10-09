@@ -5,6 +5,7 @@ import {
   findUltimateByEncounterId,
   findUltimateByZoneName,
   isSharedUltimateZoneName,
+  isVisibleUltimateZoneName,
   ULTIMATE_ENCOUNTERS,
 } from "../../src/config/ultimateEncounters.js";
 
@@ -40,6 +41,9 @@ test("zone-name classification ignores zone IDs and identifies shared legacy buc
   assert.equal(findUltimateByZoneName("A newly named zone"), null);
   assert.equal(isSharedUltimateZoneName("Ultimates (Legacy)"), true);
   assert.equal(isSharedUltimateZoneName("The Omega Protocol"), false);
+  assert.equal(isVisibleUltimateZoneName("The Omega Protocol"), true);
+  assert.equal(isVisibleUltimateZoneName("Ultimates (Legacy)"), true);
+  assert.equal(isVisibleUltimateZoneName("A newly named zone"), false);
 });
 
 test("filterFightsForUltimate requires exact encounter ID", () => {

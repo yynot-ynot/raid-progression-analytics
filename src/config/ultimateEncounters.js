@@ -64,6 +64,16 @@ export function isSharedUltimateZoneName(zoneName) {
 }
 
 /**
+ * Return whether a report-summary zone belongs in the compact Ultimate picker.
+ *
+ * This controls presentation only. Callers must retain omitted zones for
+ * diagnostics and console inspection; it is not a fight-classification rule.
+ */
+export function isVisibleUltimateZoneName(zoneName) {
+  return Boolean(findUltimateByZoneName(zoneName)) || isSharedUltimateZoneName(zoneName);
+}
+
+/**
  * Keep only fights that match a supported Ultimate encounter.
  *
  * @param {object[]} fights

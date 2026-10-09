@@ -24,7 +24,7 @@ test("chart export state is managed separately from CSV export state", () => {
   assert.match(indexHtml, /function resetChartExportState\(\)/);
 });
 
-test("normal FFLogs flow uses direct profile-source actions and an always-visible manual path", () => {
+test("normal FFLogs flow uses direct profile-source actions and a zone-first picker", () => {
   assert.match(indexHtml, /id="source-connect" class="source-connect" hidden[\s\S]*id="connect">Connect FFLogs<\/button>/);
   assert.match(indexHtml, /\.source-connect\[hidden\]\s*\{\s*display: none;/);
   assert.match(indexHtml, /id="source-workflow" hidden/);
@@ -47,12 +47,11 @@ test("normal FFLogs flow uses direct profile-source actions and an always-visibl
   assert.match(indexHtml, /#source-section\.manual-only \.source-grid/);
   assert.match(indexHtml, /button\.setAttribute\("aria-pressed", String\(isSelected\)\)/);
   assert.match(indexHtml, /await runDiscovery\(\{ sourceUrl: state\.sourceOptions\[0\]\.url, automatic: true \}\)/);
-  assert.match(indexHtml, /if \(autoSelect && orderedGroups\.length === 1\)/);
-  assert.match(indexHtml, /await selectUltimate\(orderedGroups\[0\]\)/);
   assert.match(indexHtml, /onUpdate: async \(update\) =>/);
-  assert.match(indexHtml, /await renderUltimateList\(update\.ultimates, \{ autoSelect: false \}\)/);
-  assert.match(indexHtml, /Fetching report pages \$\{update\.progress\.current\} of \$\{totalPages\}/);
-  assert.match(indexHtml, /Identifying Ultimate reports \$\{update\.progress\.current\} of \$\{update\.progress\.total\}/);
+  assert.match(indexHtml, /function renderZoneList\(zones = \[\]\)/);
+  assert.match(indexHtml, /Open an FFLogs zone to confirm its fights/);
+  assert.match(indexHtml, /createZoneDetailLoader/);
+  assert.match(indexHtml, /detailConcurrency: 3/);
 });
 
 // Authentication failures are intentionally not exposed in the UI. OAuth and
@@ -66,36 +65,41 @@ test("authentication failures use the standard unauthenticated status", () => {
   assert.doesNotMatch(bootstrapCatch, /setStatus\(authStatusEl, error\.message/);
 });
 
-// Discovery owns generic report-detail loading. Selecting an encounter must
-// reuse its cached details rather than issue a second filtered FFLogs request.
-test("selected Ultimate loading reuses cached discovery details", () => {
-  assert.match(indexHtml, /let openedReports = 0;/);
+// A selected fight reads its opened zone's cache. The zone loader owns FFLogs
+// detail requests, and selection itself does not invoke an API loader.
+test("selected Ultimate loading reuses opened-zone details", () => {
   assert.match(indexHtml, /function formatReportProgress\(openedReports, totalReports\)/);
   assert.match(indexHtml, /reports: formatReportProgress\(openedReports, totalReports\)/);
   assert.match(indexHtml, /reportDetails: group\.reportDetails,/);
-  assert.match(indexHtml, /openedReports = bundle\.reports\.length;/);
   assert.match(indexHtml, /pulls: bundle\.pulls\.length,\s*reports: openedReports,/);
   assert.match(indexHtml, /Loading available data for \$\{group\.ultimate\.displayName\}/);
-  assert.doesNotMatch(indexHtml, /onReportProgress: \(\{ current, total \}\) =>/);
+  assert.match(indexHtml, /function openZone\(zone\)/);
+  assert.match(indexHtml, /const existing = state\.zoneLoads\.get\(zone\.key\);/);
+  assert.match(indexHtml, /if \(existing\) return existing\.done;/);
 });
 
-test("Ultimate picker preserves first-seen order and coalesces active selections", () => {
-  assert.match(indexHtml, /pickerEncounterOrder: \[\]/);
-  assert.match(indexHtml, /function orderUltimateGroups\(groups\)/);
-  assert.match(indexHtml, /state\.pickerEncounterOrder\.push\(encounterId\)/);
-  assert.match(indexHtml, /selectionLoads: new Map\(\)/);
-  assert.match(indexHtml, /const existingLoad = state\.selectionLoads\.get\(encounterId\);/);
-  assert.match(indexHtml, /if \(existingLoad\) return existingLoad;/);
-  assert.match(indexHtml, /loadedEncounterIds: new Set\(\)/);
-  assert.match(indexHtml, /encounterId === state\.activeEncounterId && state\.loadedEncounterIds\.has\(encounterId\)/);
-  assert.match(indexHtml, /Loading\.\.\./);
+test("zone picker preserves first-seen order and coalesces repeated opens", () => {
+  assert.match(indexHtml, /zoneOrder: \[\]/);
+  assert.match(indexHtml, /function orderZones\(zones\)/);
+  assert.match(indexHtml, /state\.zoneOrder\.push\(key\)/);
+  assert.match(indexHtml, /zoneLoads: new Map\(\)/);
+  assert.match(indexHtml, /const existing = state\.zoneLoads\.get\(zone\.key\);/);
+  assert.match(indexHtml, /if \(existing\) return existing\.done;/);
+  assert.match(indexHtml, /activeZoneKey/);
+  assert.match(indexHtml, /Checking fights/);
+  assert.match(indexHtml, /function hasSingleSupportedFight\(zone\)/);
+  assert.match(indexHtml, /function fightDisplayName\(group, zone\)/);
+  assert.match(indexHtml, /zone\.zoneName === "Ultimates \(Legacy\)"/);
+  assert.match(indexHtml, /hasSingleSupportedFight\(update\.zone\)/);
 });
 
-test("provisional selection updates do not remount charts for every detail commit", () => {
+test("zone-detail updates defer charts until the selected zone is complete", () => {
   assert.match(indexHtml, /discoveryInProgress: false/);
-  assert.match(indexHtml, /selectUltimate\(refreshedSelection, \{ refresh: true, renderCharts: false \}\)/);
-  assert.match(indexHtml, /selectUltimate\(finalSelection, \{ refresh: true, renderCharts: true \}\)/);
-  assert.match(indexHtml, /if \(renderCharts\) \{\s*resetChartExportState\(\);/);
+  assert.match(indexHtml, /loadSelectedUltimate\(active, update\.zone, \{ renderCharts: update\.zone\.complete \}\)/);
+  assert.match(indexHtml, /loadSelectedUltimate\(group, zone, \{ renderCharts: zone\.complete \}\)/);
+  assert.match(indexHtml, /Loading all zone reports before rendering charts/);
+  assert.match(indexHtml, /setCsvExportState\(renderCharts\)/);
+  assert.match(indexHtml, /renderLiveSankeyBtn\.disabled = !renderCharts/);
   assert.match(indexHtml, /if \(renderCharts\) \{\s*await renderChartsFromPulls/);
   assert.match(indexHtml, /Searching \$\{group\.ultimate\.displayName\}; \$\{bundle\.pulls\.length\} pull\(s\) cached/);
 });

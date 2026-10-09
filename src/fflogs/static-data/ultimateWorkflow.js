@@ -1,6 +1,5 @@
 import {
   findUltimateVariantByEncounterId,
-  ULTIMATE_ENCOUNTERS,
 } from "../../config/ultimateEncounters.js";
 import {
   loadAllReports,
@@ -30,29 +29,26 @@ export function buildWorkflowDateRange(timeFrame = { preset: "all-history" }, no
 }
 
 /**
- * Discover selectable Ultimate variants from unfiltered report-fight details.
- * Zone and title data remain provenance only: a raw `fights[].encounterID` is
- * the sole identity used to group a progression dataset.
+ * Load report summaries and expose FFLogs zones as navigable scopes.
+ *
+ * This deliberately does not request report detail. Summary zone metadata is
+ * sufficient to organize source history, but only report detail can confirm a
+ * fight. `loadZoneDetails` performs that second, user-initiated step.
  */
 export async function discoverAvailableUltimates({
   config,
   queryFflogs,
   reportLimit = 100,
-  detailConcurrency = 3,
   onUpdate = null,
 } = {}) {
-  const groups = new Map();
-  const unclassifiedReports = [];
-  const failedReports = [];
-  const detailsByCode = new Map();
+  const zoneRecords = new Map();
   let reports = [];
   let pagination = null;
   let pagesFetched = 0;
 
   const emit = async (progress) => onUpdate?.({
-    reports,
-    unclassifiedReports: [...unclassifiedReports],
-    ultimates: serializeGroups(groups),
+    reports: sortReportsByStartTime(reports),
+    zones: serializeZones(zoneRecords),
     pagination,
     pagesFetched,
     progress,
@@ -65,57 +61,165 @@ export async function discoverAvailableUltimates({
     onPage: async (page) => {
       reports.push(...page.reports);
       pagesFetched = page.pagesFetched;
+      addReportsToZones(zoneRecords, page.reports);
       await emit({ stage: "report-pages", ...page });
     },
   });
+
   reports = sortReportsByStartTime(loaded.reports);
   pagination = loaded.pagination;
   pagesFetched = loaded.pagesFetched;
-
-  await loadReportDetailsWithConcurrency({
-    reports,
-    concurrency: detailConcurrency,
-    loadDetail: (report) =>
-      loadReportFights({
-        code: report.code,
-        config: { ...config, encounterId: null },
-        queryFflogs,
-      }),
-    onCommitted: async ({ report, detail, error, current, total }) => {
-      if (error || !detail) {
-        failedReports.push(report);
-        unclassifiedReports.push(report);
-      } else {
-        detailsByCode.set(report.code, detail);
-        const variants = recognizedVariants(detail);
-        if (!variants.length) unclassifiedReports.push(report);
-        for (const ultimate of variants) addReportToGroup(groups, ultimate, report, detail);
-      }
-      await emit({
-        stage: "report-details",
-        current,
-        total,
-        reportsFetched: reports.length,
-        pagesFetched,
-        failedReportCount: failedReports.length,
-      });
-    },
-  });
+  addReportsToZones(zoneRecords, reports);
 
   return {
     reports,
-    unclassifiedReports,
-    failedReports,
-    reportDetails: [...detailsByCode.values()],
-    ultimates: serializeGroups(groups),
+    zones: serializeZones(zoneRecords),
     pagination,
     pagesFetched,
   };
 }
 
 /**
- * Build one selected raw encounter's bundle from the discovery cache. Selection
- * never sends a second, encounter-filtered report-detail request.
+ * Load and classify report details for one user-opened FFLogs zone only.
+ *
+ * Details are full, unfiltered report responses so a cached response can
+ * confirm every fight in its zone. `detailsByCode` is source-owned cache shared
+ * by all opened zones; a report code is requested at most once.
+ */
+export async function loadZoneDetails({
+  zone,
+  config,
+  queryFflogs,
+  detailConcurrency = 3,
+  detailsByCode = new Map(),
+  onUpdate = null,
+} = {}) {
+  if (!zone?.key || !Array.isArray(zone.reports)) throw new Error("An FFLogs zone is required");
+  const loader = createZoneDetailLoader({
+    zone,
+    config,
+    queryFflogs,
+    detailConcurrency,
+    detailsByCode,
+    onUpdate,
+  });
+  loader.enqueue(zone.reports);
+  loader.close();
+  return loader.done;
+}
+
+/**
+ * Create a streaming, bounded detail queue for one user-opened zone.
+ *
+ * Summary pages arrive oldest-to-newest. Call `enqueue` as they arrive, then
+ * `close` once source pagination completes. This permits source pagination and
+ * selected-zone detail loading to progress independently without exceeding the
+ * zone's request limit.
+ */
+export function createZoneDetailLoader({
+  zone,
+  config,
+  queryFflogs,
+  detailConcurrency = 3,
+  detailsByCode = new Map(),
+  onUpdate = null,
+} = {}) {
+  if (!zone?.key) throw new Error("An FFLogs zone is required");
+  const reportsByCode = new Map();
+  const queue = [];
+  const resolved = new Map();
+  const failuresByCode = new Map();
+  const limit = Math.max(1, Number(detailConcurrency) || 3);
+  let nextStart = 0;
+  let nextCommit = 0;
+  let committed = 0;
+  let active = 0;
+  let closed = false;
+  let complete = false;
+  let resolveDone;
+  const done = new Promise((resolve) => { resolveDone = resolve; });
+
+  const currentZone = () => ({
+    key: zone.key,
+    zoneId: zone.zoneId ?? null,
+    zoneName: zone.zoneName || "Unknown zone",
+    reports: [...reportsByCode.values()],
+  });
+  const emit = async () => {
+    const current = buildZoneView(currentZone(), detailsByCode, failuresByCode, complete);
+    await onUpdate?.({
+      zone: current,
+      progress: {
+        stage: "zone-details",
+        current: committed,
+        total: queue.length,
+        complete,
+      },
+    });
+    return current;
+  };
+  const finishIfPossible = async () => {
+    if (!closed || complete || active || nextCommit !== queue.length) return;
+    complete = true;
+    const result = await emit();
+    resolveDone(result);
+  };
+  const commitAvailable = async () => {
+    while (resolved.has(nextCommit)) {
+      const result = resolved.get(nextCommit);
+      resolved.delete(nextCommit++);
+      committed += 1;
+      if (result.error || !result.detail) failuresByCode.set(result.report.code, result.error || new Error("No detail response"));
+      else detailsByCode.set(result.report.code, result.detail);
+      await emit();
+    }
+  };
+  const start = (index) => {
+    const report = queue[index];
+    active += 1;
+    Promise.resolve()
+      .then(() => detailsByCode.get(report.code) || loadReportFights({
+        code: report.code,
+        config: { ...config, encounterId: null },
+        queryFflogs,
+      }))
+      .then((detail) => ({ report, detail, error: null }))
+      .catch((error) => ({ report, detail: null, error }))
+      .then(async (result) => {
+        active -= 1;
+        resolved.set(index, result);
+        await commitAvailable();
+        pump();
+        await finishIfPossible();
+      });
+  };
+  const pump = () => {
+    while (active < limit && nextStart < queue.length) start(nextStart++);
+  };
+
+  return {
+    done,
+    /** Add newly released summaries from this zone without duplicating codes. */
+    enqueue(reports = []) {
+      for (const report of sortReportsByStartTime(reports)) {
+        if (reportsByCode.has(report.code)) continue;
+        reportsByCode.set(report.code, report);
+        queue.push(report);
+      }
+      pump();
+      void emit();
+    },
+    /** Tell the queue that source pagination cannot add more reports. */
+    close() {
+      closed = true;
+      void finishIfPossible();
+    },
+  };
+}
+
+/**
+ * Build one selected raw encounter's bundle from already-loaded zone details.
+ * Selection itself cannot perform an FFLogs request.
  */
 export async function loadUltimateRaidData({
   ultimate,
@@ -159,8 +263,7 @@ export function filterReportDetailForUltimate(detail, encounterId) {
 
 /**
  * Run a bounded detail worker pool. Requests may finish out of order, but
- * results commit in chronological source order so progressive UI updates are
- * deterministic and first-clear logic remains correct.
+ * results commit in chronological source order for deterministic graph input.
  */
 export async function loadReportDetailsWithConcurrency({
   reports = [],
@@ -201,52 +304,91 @@ export async function loadReportDetailsWithConcurrency({
   }
 }
 
-function recognizedVariants(detail) {
-  const variants = new Map();
-  for (const fight of detail?.fights || []) {
-    const variant = findUltimateVariantByEncounterId(fight.encounterId);
-    if (variant) variants.set(variant.encounterId, variant);
+/** Return the stable, source-local key for one FFLogs summary zone. */
+export function zoneKeyForReport(report) {
+  return `${zoneIdForReport(report) ?? "unknown"}:${zoneNameForReport(report)}`;
+}
+
+function addReportsToZones(zoneRecords, reports) {
+  for (const report of reports) {
+    const key = zoneKeyForReport(report);
+    if (!zoneRecords.has(key)) {
+      zoneRecords.set(key, {
+        key,
+        zoneId: zoneIdForReport(report),
+        zoneName: zoneNameForReport(report),
+        reportsByCode: new Map(),
+      });
+    }
+    zoneRecords.get(key).reportsByCode.set(report.code, report);
   }
-  return [...variants.values()];
 }
 
-function addReportToGroup(groups, ultimate, report, detail) {
-  const key = String(ultimate.encounterId);
-  if (!groups.has(key)) groups.set(key, { ultimate, reportsByCode: new Map(), detailsByCode: new Map() });
-  const group = groups.get(key);
-  group.reportsByCode.set(report.code, report);
-  group.detailsByCode.set(report.code, filterReportDetailForUltimate(detail, ultimate.encounterId));
+function serializeZones(zoneRecords) {
+  return [...zoneRecords.values()].map((zone) => buildZoneView({
+    key: zone.key,
+    zoneId: zone.zoneId,
+    zoneName: zone.zoneName,
+    reports: [...zone.reportsByCode.values()],
+  }));
 }
 
-function serializeGroups(groups) {
-  return [...groups.values()]
-    .map((group) => {
-      const reports = sortReportsByStartTime([...group.reportsByCode.values()]);
+function buildZoneView(zone, detailsByCode = new Map(), failuresByCode = new Map(), complete = false) {
+  const reports = sortReportsByStartTime(zone.reports || []);
+  const fightsByEncounter = new Map();
+  const reportDetails = [];
+  for (const report of reports) {
+    const detail = detailsByCode.get(report.code);
+    if (!detail) continue;
+    reportDetails.push(detail);
+    for (const fight of detail.fights || []) {
+      const ultimate = findUltimateVariantByEncounterId(fight.encounterId);
+      if (!ultimate) continue;
+      const key = String(ultimate.encounterId);
+      if (!fightsByEncounter.has(key)) {
+        fightsByEncounter.set(key, {
+          ultimate,
+          reportsByCode: new Map(),
+          detailsByCode: new Map(),
+        });
+      }
+      const group = fightsByEncounter.get(key);
+      group.reportsByCode.set(report.code, report);
+      group.detailsByCode.set(report.code, filterReportDetailForUltimate(detail, ultimate.encounterId));
+    }
+  }
+
+  return {
+    key: zone.key,
+    zoneId: zone.zoneId ?? null,
+    zoneName: zone.zoneName || "Unknown zone",
+    reports,
+    reportCount: reports.length,
+    detailsLoaded: reportDetails.length,
+    failedReportCount: failuresByCode.size,
+    complete,
+    reportDetails,
+    fights: [...fightsByEncounter.values()].map((group) => {
+      const groupReports = sortReportsByStartTime([...group.reportsByCode.values()]);
       return {
-        ultimate: {
-          ...group.ultimate,
-          displayName: group.ultimate.expansion === "Dawntrail"
-            ? group.ultimate.displayName
-            : `${group.ultimate.displayName} (${group.ultimate.expansion})`,
-        },
-        reports,
-        candidateReports: reports,
-        confirmedReports: reports,
-        reportDetails: reports.map((report) => group.detailsByCode.get(report.code)).filter(Boolean),
-        reportCount: reports.length,
-        candidateReportCount: reports.length,
-        confirmed: true,
-        exactConfirmationRequired: true,
-        source: { kind: "report-fight", zoneId: null, zoneName: null },
-        firstReportStartTime: reports[0]?.startTime ?? null,
-        lastReportStartTime: reports.at(-1)?.startTime ?? null,
+        ultimate: withVariantLabel(group.ultimate),
+        reports: groupReports,
+        candidateReports: groupReports,
+        reportDetails: groupReports.map((report) => group.detailsByCode.get(report.code)).filter(Boolean),
+        reportCount: groupReports.length,
+        source: { kind: "report-zone", zoneId: zone.zoneId ?? null, zoneName: zone.zoneName || "Unknown zone" },
       };
-    })
-    .sort((left, right) => {
-      const canonicalOrder = ULTIMATE_ENCOUNTERS.findIndex((entry) => entry.slug === left.ultimate.slug)
-        - ULTIMATE_ENCOUNTERS.findIndex((entry) => entry.slug === right.ultimate.slug);
-      return canonicalOrder || Number(left.ultimate.encounterId) - Number(right.ultimate.encounterId);
-    });
+    }),
+  };
+}
+
+function withVariantLabel(ultimate) {
+  return {
+    ...ultimate,
+    displayName: ultimate.expansion === "Dawntrail"
+      ? ultimate.displayName
+      : `${ultimate.displayName} (${ultimate.expansion})`,
+  };
 }
 
 function firstClearCutoff(details) {
@@ -270,6 +412,16 @@ function trimDetailToCutoff(detail, cutoff) {
 
 function pullEnd(pull) {
   return Number(pull.pullStartTimestamp) + Number(pull.pullDurationMs || 0);
+}
+
+/** Read zone metadata from the app-owned summary shape without trusting it as fight identity. */
+function zoneIdForReport(report) {
+  return report?.zoneId ?? report?.zone?.id ?? null;
+}
+
+/** Read a displayable FFLogs zone name, retaining missing metadata as unknown. */
+function zoneNameForReport(report) {
+  return String(report?.zoneName ?? report?.zone?.name ?? "Unknown zone").trim() || "Unknown zone";
 }
 
 function parseDateBoundary(value, boundary) {

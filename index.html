@@ -250,9 +250,21 @@
       }
 
       .ultimate-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
         margin-top: 12px;
       }
 
+      .zone-group,
+      .zone-detail-list {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .zone-choice,
       .ultimate-choice {
         background: #f6f8fa;
         border: 1px solid #d8dee5;
@@ -263,11 +275,33 @@
         padding: 9px 11px;
       }
 
+      .zone-choice {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+        text-align: left;
+      }
+
+      .zone-choice.active,
+      .zone-choice:hover,
       .ultimate-choice.active,
       .ultimate-choice:hover {
         background: #233142;
         border-color: #233142;
         color: white;
+      }
+
+      .zone-detail-list .ultimate-choice {
+        width: fit-content;
+      }
+
+      .zone-meta {
+        color: #66727f;
+        font-size: 13px;
+      }
+
+      .zone-choice:hover .zone-meta {
+        color: #e6ebf0;
       }
 
       .ultimate-choice.loading {
@@ -642,6 +676,7 @@
       } from "./src/charts/bar/barData.js";
       import { renderStackedBar } from "./src/charts/bar/barRenderer.js";
       import { getChartColorsForRaid } from "./src/config/chartColors.js";
+      import { isVisibleUltimateZoneName } from "./src/config/ultimateEncounters.js";
       import { completeLogin, startLogin } from "./src/fflogs/auth/fflogsAuth.js";
       import { TokenStore } from "./src/fflogs/auth/tokenStore.js";
       import { loadCurrentUser } from "./src/fflogs/static-data/currentUserLoader.js";
@@ -651,6 +686,7 @@
       import { pullCsvRowsToNormalizedPulls } from "./src/ingestion/csv/pullCsvRows.js";
       import {
         buildWorkflowSourceConfig,
+        createZoneDetailLoader,
         discoverAvailableUltimates,
         loadUltimateRaidData,
       } from "./src/fflogs/static-data/ultimateWorkflow.js";
@@ -667,11 +703,12 @@
         latestResult: null,
         latestBundle: null,
         selectedUltimate: null,
+        activeZoneKey: null,
         activeEncounterId: null,
-        pickerEncounterOrder: [],
-        selectionLoads: new Map(),
-        loadedEncounterIds: new Set(),
-        loadedBundlesByEncounterId: new Map(),
+        zoneOrder: [],
+        zoneLoads: new Map(),
+        zoneViews: new Map(),
+        reportDetailsByCode: new Map(),
         csvExports: null,
         sourceOptions: [],
       };
@@ -1003,6 +1040,12 @@
         console.debug("[FFLogs] Fetched discovery reports", toDiscoveryDebugReports(reports));
       }
 
+      /** Log retained but intentionally hidden non-Ultimate zones for diagnosis. */
+      function logIgnoredZones(zones) {
+        const ignored = zones.filter((zone) => !isVisibleUltimateZoneName(zone.zoneName));
+        if (ignored.length) console.debug("[FFLogs] Hidden non-Ultimate report zones", ignored);
+      }
+
       /**
        * Normalize the fetched report list for console inspection and download.
        * This intentionally excludes authentication state and raw API payloads.
@@ -1076,11 +1119,12 @@
         state.csvExports = null;
         state.latestBundle = null;
         state.selectedUltimate = null;
+        state.activeZoneKey = null;
         state.activeEncounterId = null;
-        state.pickerEncounterOrder = [];
-        state.selectionLoads.clear();
-        state.loadedEncounterIds.clear();
-        state.loadedBundlesByEncounterId.clear();
+        state.zoneOrder = [];
+        state.zoneLoads.clear();
+        state.zoneViews.clear();
+        state.reportDetailsByCode.clear();
         state.discoveryInProgress = true;
         downloadDiscoveryReportsBtn.disabled = true;
         setCsvExportState(false);
@@ -1099,44 +1143,22 @@
           reportLimit: 100,
           onUpdate: async (update) => {
             state.discovery = update;
-            await renderUltimateList(update.ultimates, { autoSelect: false });
-            // Selection reads cached details. Re-render the active encounter as
-            // ordered workers commit additional reports, without starting a
-            // second FFLogs detail request for the same report.
-            const refreshedSelection = update.ultimates.find(
-              (group) => group.ultimate.encounterId === state.activeEncounterId,
+            feedOpenZones(update.zones);
+            renderZoneList(update.zones);
+            const totalPages = update.progress.totalPages ?? "?";
+            setStatus(
+              workflowStatusEl,
+              `Fetching report pages ${update.progress.pagesFetched} of ${totalPages} (${update.progress.reportsFetched} reports)...`,
             );
-            if (refreshedSelection) {
-              // Keep the provisional graph mounted during discovery. The cache
-              // and summary still advance, while the final redraw happens only
-              // once the source-wide worker queue reaches a terminal state.
-              await selectUltimate(refreshedSelection, { refresh: true, renderCharts: false });
-            }
-            if (update.progress.stage === "report-pages") {
-              const totalPages = update.progress.total ?? "?";
-              setStatus(
-                workflowStatusEl,
-                `Fetching report pages ${update.progress.current} of ${totalPages} (${update.progress.reportsFetched} reports)...`,
-              );
-            } else {
-              setStatus(
-                workflowStatusEl,
-                `Identifying Ultimate reports ${update.progress.current} of ${update.progress.total}...`,
-              );
-            }
           },
         });
         state.discoveryInProgress = false;
-        const finalSelection = state.discovery.ultimates.find(
-          (group) => group.ultimate.encounterId === state.activeEncounterId,
-        );
-        if (finalSelection) {
-          await selectUltimate(finalSelection, { refresh: true, renderCharts: true });
-        }
+        closeOpenZoneLoads();
         logDiscoveredReports(state.discovery.reports);
+        logIgnoredZones(state.discovery.zones);
         downloadDiscoveryReportsBtn.disabled = false;
 
-        const automaticallySelected = await renderUltimateList(state.discovery.ultimates);
+        renderZoneList(state.discovery.zones);
         renderResult({
           currentUser: state.currentUser,
           source: state.team,
@@ -1144,126 +1166,154 @@
           discoveredReports: state.discovery.reports.length,
           discoveryPagination: state.discovery.pagination,
           discoveryPagesFetched: state.discovery.pagesFetched,
-          ultimates: state.discovery.ultimates.map(summarizeUltimateGroup),
+          zones: state.discovery.zones.map(summarizeZone),
         });
-        if (!automaticallySelected && state.discovery.ultimates.length > 1) {
-          setStatus(workflowStatusEl, "Choose an Ultimate to load its progression.", "ok");
-        } else if (!automaticallySelected && state.discovery.ultimates.length === 0) {
-          setStatus(workflowStatusEl, "No supported Ultimate reports found for this source.");
-        }
+        setStatus(workflowStatusEl, "Open an FFLogs zone to confirm its fights.", "ok");
       }
 
       /**
-       * Render selectable Ultimate rows.
-       *
-       * @param {object[]} groups
-       * @param {{autoSelect?: boolean}} options
+       * Render stable summary-zone rows and the confirmed fights from open zones.
+       * Report summaries create scopes; they never create fight choices by name.
        */
-      async function renderUltimateList(groups, { autoSelect = true } = {}) {
-        const orderedGroups = orderUltimateGroups(groups);
-        if (!orderedGroups.length) {
-          ultimateListEl.innerHTML = autoSelect
-            ? '<div class="muted">No supported Ultimate reports found for this source.</div>'
-            : '<div class="muted">Looking for supported Ultimate reports...</div>';
-          return false;
+      function renderZoneList(zones = []) {
+        const orderedZones = orderZones(zones.filter((zone) => isVisibleUltimateZoneName(zone.zoneName)));
+        if (!orderedZones.length) {
+          ultimateListEl.innerHTML = '<div class="muted">Looking for FFLogs report zones...</div>';
+          return;
         }
+        ultimateListEl.replaceChildren(...orderedZones.map((zone) => {
+          const view = state.zoneViews.get(zone.key) || zone;
+          const loading = state.zoneLoads.has(zone.key);
+          const wrapper = document.createElement("div");
+          wrapper.className = "zone-group";
+          const zoneButton = document.createElement("button");
+          zoneButton.className = `zone-choice${state.activeZoneKey === zone.key ? " active" : ""}`;
+          zoneButton.innerHTML = `<span>${escapeHtml(zone.zoneName)}</span><span class="zone-meta">${view.detailsLoaded || 0} / ${zone.reportCount} reports${loading ? " · Loading..." : view.complete ? " · Ready" : ""}</span>`;
+          zoneButton.title = `Open ${zone.zoneName} report details`;
+          zoneButton.addEventListener("click", () => openZone(zone).catch(handleWorkflowError));
+          wrapper.append(zoneButton);
 
-        if (autoSelect && orderedGroups.length === 1) {
-          ultimateListEl.innerHTML = `<div class="muted">Loading ${orderedGroups[0].ultimate.displayName}...</div>`;
-          await selectUltimate(orderedGroups[0]);
-          return true;
-        }
-
-        ultimateListEl.replaceChildren(
-          ...orderedGroups.map((group) => {
-            const encounterId = group.ultimate.encounterId;
-            const isActive = encounterId === state.activeEncounterId;
-            const isLoading = state.selectionLoads.has(encounterId);
-            const button = document.createElement("button");
-            button.className = `ultimate-choice${isActive ? " active" : ""}${isLoading ? " loading" : ""}`;
-            button.textContent = `${group.ultimate.displayName} · ${group.reportCount} reports${isLoading ? " · Loading..." : ""}`;
-            button.title = `Encounter ${group.ultimate.encounterId}, ${group.source?.zoneName || "FFLogs zone"}`;
-            button.addEventListener("click", () => {
-              selectUltimate(group).catch((error) => {
-                console.error(error);
-                setStatus(workflowStatusEl, error.message, "error");
-                setStatus(sankeyStatusEl, error.message, "error");
-                setStatus(barStatusEl, error.message, "error");
-                setChartError([barTimeEl, barMeetingEl, barPullsEl], error.message);
-                setChartError([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], error.message);
-              });
-            });
-
-            return button;
-          }),
-        );
-        return false;
+          // One confirmed fight already makes this zone chip the selected
+          // control. A second, identical button would add a redundant decision.
+          if (state.activeZoneKey === zone.key && !hasSingleSupportedFight(view)) {
+            const details = document.createElement("div");
+            details.className = "zone-detail-list";
+            if (!view.fights?.length) {
+              details.innerHTML = `<span class="muted">${loading ? "Checking fights..." : "No supported fights confirmed in this zone."}</span>`;
+            } else {
+              for (const group of view.fights) {
+                const encounterId = group.ultimate.encounterId;
+                const button = document.createElement("button");
+                button.className = `ultimate-choice${encounterId === state.activeEncounterId ? " active" : ""}`;
+                button.textContent = `${fightDisplayName(group, zone)} · ${group.reportCount} reports`;
+                button.title = `Encounter ${encounterId}, confirmed in ${zone.zoneName}`;
+                button.addEventListener("click", () => selectUltimate(group, view).catch(handleWorkflowError));
+                details.append(button);
+              }
+            }
+            wrapper.append(details);
+          }
+          return wrapper;
+        }));
       }
 
-      /**
-       * Preserve first-discovered picker positions. Discovery updates can add a
-       * lower canonical ID later, but must never shift an existing choice.
-       *
-       * @param {object[]} groups
-       * @returns {object[]}
-       */
-      function orderUltimateGroups(groups) {
-        const byEncounterId = new Map(groups.map((group) => [group.ultimate.encounterId, group]));
-        for (const encounterId of byEncounterId.keys()) {
-          if (!state.pickerEncounterOrder.includes(encounterId)) state.pickerEncounterOrder.push(encounterId);
-        }
-        return state.pickerEncounterOrder.map((encounterId) => byEncounterId.get(encounterId)).filter(Boolean);
+      /** One currently confirmed fight leaves no fight-selection decision. */
+      function hasSingleSupportedFight(zone) {
+        return Boolean(zone?.fights?.length === 1);
       }
 
-      /**
-       * Bind the view to one encounter's shared cached details. Repeated clicks
-       * on the active load are intentionally no-ops; switching encounter only
-       * changes the bound view and never changes the generic FFLogs queue.
-       *
-       * @param {object} group
-       * @param {{refresh?: boolean, renderCharts?: boolean}} options
-       * @returns {Promise<void>}
-       */
-      async function selectUltimate(group, { refresh = false, renderCharts = true } = {}) {
-        const encounterId = group.ultimate.encounterId;
-        const existingLoad = state.selectionLoads.get(encounterId);
-        if (existingLoad) return existingLoad;
-        if (!refresh && encounterId === state.activeEncounterId && state.loadedEncounterIds.has(encounterId)) return;
+      /** Add an expansion label only where a Legacy scope needs disambiguation. */
+      function fightDisplayName(group, zone) {
+        if (zone.zoneName === "Ultimates (Legacy)") {
+          return `${group.ultimate.displayName} (${group.ultimate.expansion})`;
+        }
+        return group.ultimate.displayName;
+      }
 
-        state.activeEncounterId = encounterId;
+      /** Preserve first-seen zone positions while summary pages stream in. */
+      function orderZones(zones) {
+        const byKey = new Map(zones.map((zone) => [zone.key, zone]));
+        for (const key of byKey.keys()) if (!state.zoneOrder.includes(key)) state.zoneOrder.push(key);
+        return state.zoneOrder.map((key) => byKey.get(key)).filter(Boolean);
+      }
+
+      /** Start, or focus, one zone's idempotent bounded detail queue. */
+      async function openZone(zone) {
+        state.activeZoneKey = zone.key;
+        renderZoneList(state.discovery?.zones || []);
+        const existing = state.zoneLoads.get(zone.key);
+        if (existing) return existing.done;
+
+        const loader = createZoneDetailLoader({
+          zone,
+          config: state.config,
+          queryFflogs: queryWithToken,
+          detailConcurrency: 3,
+          detailsByCode: state.reportDetailsByCode,
+          onUpdate: async (update) => {
+            state.zoneViews.set(zone.key, update.zone);
+            renderZoneList(state.discovery?.zones || []);
+            if (
+              state.activeZoneKey === zone.key
+              && hasSingleSupportedFight(update.zone)
+              && state.activeEncounterId !== update.zone.fights[0].ultimate.encounterId
+            ) {
+              await selectUltimate(update.zone.fights[0], update.zone);
+              return;
+            }
+            if (state.activeZoneKey === zone.key && state.activeEncounterId != null) {
+              const active = update.zone.fights.find((group) => group.ultimate.encounterId === state.activeEncounterId);
+              if (active) await loadSelectedUltimate(active, update.zone, { renderCharts: update.zone.complete });
+            }
+            setStatus(workflowStatusEl, `Checking ${update.progress.current} of ${update.progress.total} reports in ${zone.zoneName}...`);
+          },
+        });
+        state.zoneLoads.set(zone.key, loader);
+        loader.enqueue(zone.reports);
+        if (!state.discoveryInProgress) loader.close();
+        loader.done.finally(() => {
+          state.zoneLoads.delete(zone.key);
+          renderZoneList(state.discovery?.zones || []);
+        });
+        return loader.done;
+      }
+
+      /** Feed reports released after a zone was opened into its same queue. */
+      function feedOpenZones(zones) {
+        for (const zone of zones) state.zoneLoads.get(zone.key)?.enqueue(zone.reports);
+      }
+
+      /** Close zone queues once no further summary page can contribute work. */
+      function closeOpenZoneLoads() {
+        for (const loader of state.zoneLoads.values()) loader.close();
+      }
+
+      /** Bind chart/output state to a confirmed fight from the active zone cache. */
+      async function selectUltimate(group, zone) {
+        if (state.activeZoneKey === zone.key && state.activeEncounterId === group.ultimate.encounterId) return;
+        state.activeZoneKey = zone.key;
+        state.activeEncounterId = group.ultimate.encounterId;
         state.selectedUltimate = group.ultimate;
-        const load = loadSelectedUltimate(group, { renderCharts })
-          .then(() => {
-            state.loadedEncounterIds.add(encounterId);
-          })
-          .finally(() => {
-            state.selectionLoads.delete(encounterId);
-            // Keep the picker state visible after the load settles.
-            renderUltimateList(state.discovery?.ultimates || [], { autoSelect: false });
-          });
-        state.selectionLoads.set(encounterId, load);
-        await renderUltimateList(state.discovery?.ultimates || [], { autoSelect: false });
-        return load;
+        renderZoneList(state.discovery?.zones || []);
+        await loadSelectedUltimate(group, zone, { renderCharts: zone.complete });
       }
 
-      /**
-       * Load normalized pulls for one selected Ultimate group.
-       *
-       * @param {object} group
-       * @param {{renderCharts?: boolean}} options
-       */
-      async function loadSelectedUltimate(group, { renderCharts = true } = {}) {
-        const totalReports = group.reports.length;
-        let openedReports = 0;
+      /** Rebuild one selected fight's graph input from its current zone cache. */
+      async function loadSelectedUltimate(group, zone, { renderCharts = true } = {}) {
+        const totalReports = zone.reportCount;
+        const openedReports = zone.detailsLoaded;
         updateSummary({
           selected: group.ultimate.displayName,
           reports: formatReportProgress(openedReports, totalReports),
         });
         setStatus(workflowStatusEl, `Loading available data for ${group.ultimate.displayName}...`);
+        resetChartExportState();
         if (renderCharts) {
-          resetChartExportState();
-          setChartLoading([barTimeEl, barMeetingEl, barPullsEl], "Waiting for pull data...");
-          setChartLoading([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], "Waiting for pull data...");
+          setChartLoading([barTimeEl, barMeetingEl, barPullsEl], "Rendering final chart data...");
+          setChartLoading([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], "Rendering final chart data...");
+        } else {
+          setChartLoading([barTimeEl, barMeetingEl, barPullsEl], "Loading all zone reports before rendering charts...");
+          setChartLoading([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], "Loading all zone reports before rendering charts...");
         }
         const bundle = await loadUltimateRaidData({
           ultimate: group.ultimate,
@@ -1272,13 +1322,11 @@
           currentUser: state.currentUser,
           team: state.team,
         });
-        openedReports = bundle.reports.length;
         const sortedPulls = bundle.pulls
           .slice()
           .sort((left, right) => Number(left.pullStartTimestamp || 0) - Number(right.pullStartTimestamp || 0));
         state.latestBundle = bundle;
         state.selectedUltimate = group.ultimate;
-        state.loadedBundlesByEncounterId.set(group.ultimate.encounterId, bundle);
         state.csvExports = buildFflogsCsvExports(bundle);
         updateSummary({
           selected: group.ultimate.displayName,
@@ -1307,11 +1355,11 @@
           },
           data: bundle,
         });
-        setCsvExportState(true);
-        renderLiveSankeyBtn.disabled = false;
+        setCsvExportState(renderCharts);
+        renderLiveSankeyBtn.disabled = !renderCharts;
         if (renderCharts) {
           await renderChartsFromPulls(bundle.pulls, "Loaded FFLogs pulls", group.ultimate);
-          setStatus(workflowStatusEl, `Loaded ${bundle.pulls.length} pull(s).`, "ok");
+          setStatus(workflowStatusEl, `Loaded ${bundle.pulls.length} pull(s) from ${openedReports} report(s).`, "ok");
         } else {
           setStatus(workflowStatusEl, `Searching ${group.ultimate.displayName}; ${bundle.pulls.length} pull(s) cached...`);
         }
@@ -1685,22 +1733,13 @@
         return `${summarySelectedEl.textContent || "Raid Progression"} ${capitalize(family)} Charts`;
       }
 
-      /**
-       * Return a compact group summary for debug output.
-       *
-       * @param {object} group
-       * @returns {object}
-       */
-      function summarizeUltimateGroup(group) {
+      /** Return a compact report-zone summary for debug output. */
+      function summarizeZone(zone) {
         return {
-              slug: group.ultimate.slug,
-              name: group.ultimate.displayName,
-              source: group.source || null,
-              encounterId: group.ultimate.encounterId,
-          reportCount: group.reportCount,
-          candidateReportCount: group.candidateReportCount,
-          confirmed: group.confirmed,
-          exactConfirmationRequired: group.exactConfirmationRequired,
+          key: zone.key,
+          zoneId: zone.zoneId,
+          zoneName: zone.zoneName,
+          reportCount: zone.reportCount,
         };
       }
 
