@@ -104,9 +104,8 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .on("mousemove", (event, point) => {
       renderBarTooltip(tooltip.node(), point.data, series, colors, chartData.metricType);
       tooltip
-        .style("display", "block")
-        .style("left", `${event.offsetX + 16}px`)
-        .style("top", `${event.offsetY + 16}px`);
+        .style("display", "block");
+      positionTooltipInContainer(tooltip.node(), container, event);
     })
     .on("mouseleave", () => tooltip.style("display", "none"));
 
@@ -143,6 +142,59 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .text(chartData.yLabel);
 
   renderLegend(svg, series, colors, margin.left + innerWidth / 2, margin.top + innerHeight);
+}
+
+/**
+ * Place a live tooltip beside its pointer without allowing it to overflow its
+ * chart panel. Near the right or lower edges it flips to the opposite side.
+ *
+ * @param {HTMLElement} tooltip
+ * @param {HTMLElement} container
+ * @param {MouseEvent} event
+ */
+function positionTooltipInContainer(tooltip, container, event) {
+  if (!tooltip || !container) return;
+  const bounds = container.getBoundingClientRect();
+  const position = calculateTooltipPosition({
+    pointerX: event.clientX - bounds.left,
+    pointerY: event.clientY - bounds.top,
+    tooltipWidth: tooltip.offsetWidth,
+    tooltipHeight: tooltip.offsetHeight,
+    containerWidth: bounds.width,
+    containerHeight: bounds.height,
+  });
+  tooltip.style.left = `${position.left}px`;
+  tooltip.style.top = `${position.top}px`;
+}
+
+/**
+ * Calculate a clamped chart-relative tooltip position.
+ *
+ * Kept DOM-free so both edge behavior and future renderer changes can be
+ * verified without a browser test environment.
+ *
+ * @param {{pointerX: number, pointerY: number, tooltipWidth: number, tooltipHeight: number, containerWidth: number, containerHeight: number, gap?: number}} input
+ * @returns {{left: number, top: number}}
+ */
+export function calculateTooltipPosition({
+  pointerX,
+  pointerY,
+  tooltipWidth,
+  tooltipHeight,
+  containerWidth,
+  containerHeight,
+  gap = 12,
+}) {
+  const maxLeft = Math.max(0, containerWidth - tooltipWidth);
+  const maxTop = Math.max(0, containerHeight - tooltipHeight);
+  const rightPosition = pointerX + gap;
+  const bottomPosition = pointerY + gap;
+  const left = rightPosition + tooltipWidth <= containerWidth ? rightPosition : pointerX - tooltipWidth - gap;
+  const top = bottomPosition + tooltipHeight <= containerHeight ? bottomPosition : pointerY - tooltipHeight - gap;
+  return {
+    left: Math.max(0, Math.min(left, maxLeft)),
+    top: Math.max(0, Math.min(top, maxTop)),
+  };
 }
 
 /**
@@ -189,7 +241,7 @@ function renderLegend(svg, series, colors, plotCenterX, plotBottomY) {
       .attr("y", 10)
       .attr("font-size", 13)
       .attr("font-weight", 400)
-      .text(key === "Meeting" ? "Meetings, breaks, and DCs" : shortSeriesLabel(key));
+      .text(key === "Meeting" ? "Meetings, breaks, and DCs" : compactSeriesLabel(key));
     offset += itemWidths[index];
   });
 }
@@ -218,13 +270,17 @@ function getSeriesColor(key, colors) {
 }
 
 /**
- * Use reference-style compact legend labels, e.g. P1 instead of P1: Kefka.
+ * Use compact chart labels: phase prefixes remain short, while the two
+ * non-phase series use deliberate abbreviations that fit tooltip columns.
  *
  * @param {string} key
  * @returns {string}
  */
-function shortSeriesLabel(key) {
-  return key.split(":")[0];
+export function compactSeriesLabel(key) {
+  const label = key.split(":")[0];
+  if (label === "Intermission") return "INT";
+  if (label === "Meeting") return "Mtg/Brk";
+  return label;
 }
 
 /**
@@ -252,14 +308,12 @@ function renderBarTooltip(tooltip, row, series, colors, metricType) {
 
   for (const [key, value] of splitRows) {
     const line = document.createElement("div");
-    line.className = "chart-tooltip-row";
-
-    const dot = document.createElement("span");
-    dot.className = "chart-tooltip-dot";
-    dot.style.background = getSeriesColor(key, colors);
+    const isMeeting = key === "Meeting";
+    line.className = `chart-tooltip-row${isMeeting ? " chart-tooltip-row-meeting" : ""}`;
 
     const phase = document.createElement("span");
-    phase.textContent = shortSeriesLabel(key);
+    phase.className = "chart-tooltip-phase";
+    phase.textContent = compactSeriesLabel(key);
 
     const percentage = document.createElement("span");
     percentage.className = "chart-tooltip-pct";
@@ -269,7 +323,15 @@ function renderBarTooltip(tooltip, row, series, colors, metricType) {
     formattedValue.className = "chart-tooltip-value";
     formattedValue.textContent = formatTooltipValue(value, metricType);
 
-    line.append(dot, phase, percentage, formattedValue);
+    // Meeting time is derived, not a colored phase. Its label uses the vacant
+    // dot slot so `Mtg/Brk` stays on one compact line.
+    if (!isMeeting) {
+      const dot = document.createElement("span");
+      dot.className = "chart-tooltip-dot";
+      dot.style.background = getSeriesColor(key, colors);
+      line.append(dot);
+    }
+    line.append(phase, percentage, formattedValue);
     tooltip.append(line);
   }
 }
@@ -292,7 +354,7 @@ function formatBarExportTooltip(row, series, metricType) {
     .filter(([, value]) => value > 0)
     .map(
       ([key, value]) =>
-        `${shortSeriesLabel(key)} ${formatTooltipPercentage(value, total)} ${formatTooltipValue(value, metricType)}`,
+        `${compactSeriesLabel(key)} ${formatTooltipPercentage(value, total)} ${formatTooltipValue(value, metricType)}`,
     );
 
   return [`${formatTooltipDate(row.Date || row.DisplayDate)} (${formatTooltipValue(total, metricType)})`, ...splitLines].join(

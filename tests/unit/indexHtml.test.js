@@ -30,6 +30,19 @@ test("debug tools are visible only on localhost", () => {
   assert.match(indexHtml, /debugSectionEl\.hidden = window\.location\.hostname !== "localhost";/);
 });
 
+test("downloaded chart HTML keeps tooltips within the viewport", () => {
+  assert.match(indexHtml, /rightPosition \+ tooltipWidth <= window\.innerWidth/);
+  assert.match(indexHtml, /event\.clientX - tooltipWidth - gap/);
+  assert.match(indexHtml, /bottomPosition \+ tooltipHeight <= window\.innerHeight/);
+  assert.match(indexHtml, /event\.clientY - tooltipHeight - gap/);
+});
+
+test("derived meeting tooltip labels span the unused phase-swatch space", () => {
+  assert.match(indexHtml, /grid-template-columns: 10px 32px 48px 50px;/);
+  assert.match(indexHtml, /\.chart-tooltip-row-meeting \.chart-tooltip-phase\s*\{\s*grid-column: 1 \/ span 2;/);
+  assert.match(indexHtml, /\.chart-tooltip-row-meeting \.chart-tooltip-pct\s*\{\s*grid-column: 3;/);
+});
+
 test("chart export state is managed separately from CSV export state", () => {
   const csvStateBody = extractFunctionBody(indexHtml, "setCsvExportState");
 

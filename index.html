@@ -474,7 +474,20 @@
         align-items: baseline;
         display: grid;
         gap: 7px;
-        grid-template-columns: 10px 24px 48px 50px;
+        grid-template-columns: 10px 32px 48px 50px;
+      }
+
+      /* Derived meeting time has no phase swatch, so its label takes that slot. */
+      .chart-tooltip-row-meeting .chart-tooltip-phase {
+        grid-column: 1 / span 2;
+      }
+
+      .chart-tooltip-row-meeting .chart-tooltip-pct {
+        grid-column: 3;
+      }
+
+      .chart-tooltip-row-meeting .chart-tooltip-value {
+        grid-column: 4;
       }
 
       .chart-tooltip-dot {
@@ -1681,8 +1694,21 @@
         target.addEventListener("mousemove", (event) => {
           tooltip.textContent = target.dataset.tooltip || "";
           tooltip.style.display = "block";
-          tooltip.style.left = event.clientX + 16 + "px";
-          tooltip.style.top = event.clientY + 16 + "px";
+          const gap = 12;
+          const tooltipWidth = tooltip.offsetWidth;
+          const tooltipHeight = tooltip.offsetHeight;
+          const maxLeft = Math.max(0, window.innerWidth - tooltipWidth);
+          const maxTop = Math.max(0, window.innerHeight - tooltipHeight);
+          const rightPosition = event.clientX + gap;
+          const bottomPosition = event.clientY + gap;
+          const left = rightPosition + tooltipWidth <= window.innerWidth
+            ? rightPosition
+            : event.clientX - tooltipWidth - gap;
+          const top = bottomPosition + tooltipHeight <= window.innerHeight
+            ? bottomPosition
+            : event.clientY - tooltipHeight - gap;
+          tooltip.style.left = Math.max(0, Math.min(left, maxLeft)) + "px";
+          tooltip.style.top = Math.max(0, Math.min(top, maxTop)) + "px";
         });
         target.addEventListener("mouseleave", () => {
           tooltip.style.display = "none";
