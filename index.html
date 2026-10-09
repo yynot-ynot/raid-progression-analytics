@@ -337,7 +337,7 @@
       .summary {
         display: grid;
         gap: 12px;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: minmax(180px, 1.1fr) minmax(90px, 0.5fr) minmax(235px, 1.5fr) minmax(110px, 0.6fr) minmax(180px, 1fr);
       }
 
       .stat {
@@ -355,12 +355,67 @@
         margin-top: 3px;
       }
 
+      .time-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        margin-top: 3px;
+      }
+
+      .time-summary-value {
+        align-items: baseline;
+        display: inline-flex;
+        white-space: nowrap;
+      }
+
+      .time-duration {
+        align-items: baseline;
+        display: inline-flex;
+        font-variant-numeric: tabular-nums;
+        gap: 3px;
+      }
+
+      .time-duration-number {
+        font-size: 21px;
+        font-weight: 700;
+      }
+
+      .time-duration-unit {
+        color: #66727f;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .time-summary-value .muted {
+        margin-left: 4px;
+      }
+
       .tabs {
         border-bottom: 1px solid #e0e4e8;
         display: flex;
         gap: 18px;
         margin: -2px 0 14px;
         overflow-x: auto;
+      }
+
+      .tab-spacer {
+        flex: 1 0 8px;
+      }
+
+      .tabs .split-download {
+        flex: 0 0 auto;
+        margin-bottom: 4px;
+      }
+
+      .visually-hidden {
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        padding: 0;
+        position: absolute;
+        width: 1px;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
       }
 
       .tab {
@@ -589,7 +644,14 @@
         <section id="data-summary" class="section summary" hidden>
           <div class="stat"><span class="muted">Selected</span><strong id="summary-selected">No fight loaded</strong></div>
           <div class="stat"><span class="muted">Pulls</span><strong id="summary-pulls">0</strong></div>
-          <div class="stat"><span class="muted">Reports opened</span><strong id="summary-reports">0</strong></div>
+          <div class="stat">
+            <span class="muted">Time</span>
+            <div class="time-summary">
+              <span class="time-summary-value"><span id="summary-pull-time" class="time-duration">-</span><span class="muted">pull</span></span>
+              <span class="time-summary-value"><span id="summary-session-time" class="time-duration">-</span><span class="muted" title="Includes time between pulls: meetings, breaks, and DCs.">session</span></span>
+            </div>
+          </div>
+          <div class="stat"><span id="summary-calendar-label" class="muted">Calendar days</span><strong id="summary-calendar-days">0</strong></div>
           <div class="stat"><span class="muted">Data window</span><strong id="summary-window">-</strong></div>
         </section>
 
@@ -598,12 +660,7 @@
             <button class="tab active" data-tab-group="bar" data-target="bar-time">Daily Hours</button>
             <button class="tab" data-tab-group="bar" data-target="bar-pulls">Daily Pull Count</button>
             <button class="tab" data-tab-group="bar" data-target="bar-meeting">Full Session Time</button>
-          </nav>
-          <div class="surface-head">
-            <div>
-              <h2>Bar Analysis</h2>
-              <p id="bar-status" class="muted">Load pulls or render the Planning fixture.</p>
-            </div>
+            <span class="tab-spacer" aria-hidden="true"></span>
             <div class="split-download" data-download-family="bar" hidden>
               <button id="download-bar-html" class="split-download-main" disabled>Download HTML</button>
               <button
@@ -619,7 +676,8 @@
                 <button id="download-phase-csv" disabled>Download CSV</button>
               </div>
             </div>
-          </div>
+          </nav>
+          <p id="bar-status" class="visually-hidden" aria-live="polite"></p>
           <div id="bar-time" class="chart-panel active"></div>
           <div id="bar-pulls" class="chart-panel"></div>
           <div id="bar-meeting" class="chart-panel"></div>
@@ -630,12 +688,7 @@
             <button class="tab active" data-tab-group="sankey" data-target="sankey-time">Phase Time Progression</button>
             <button class="tab" data-tab-group="sankey" data-target="sankey-pulls">Phase Pull Progression</button>
             <button class="tab" data-tab-group="sankey" data-target="sankey-meeting">Full Session Time</button>
-          </nav>
-          <div class="surface-head">
-            <div>
-              <h2>Sankey Analysis</h2>
-              <p id="sankey-status" class="muted">Load pulls or render the Planning fixture.</p>
-            </div>
+            <span class="tab-spacer" aria-hidden="true"></span>
             <div class="split-download" data-download-family="sankey" hidden>
               <button id="download-sankey-html" class="split-download-main" disabled>Download HTML</button>
               <button
@@ -651,7 +704,8 @@
                 <button id="download-meeting-csv" disabled>Download CSV</button>
               </div>
             </div>
-          </div>
+          </nav>
+          <p id="sankey-status" class="visually-hidden" aria-live="polite"></p>
           <div id="sankey-time" class="chart-panel sankey-panel active"></div>
           <div id="sankey-pulls" class="chart-panel sankey-panel"></div>
           <div id="sankey-meeting" class="chart-panel sankey-panel"></div>
@@ -688,6 +742,7 @@
         buildPullSankeyFromPulls,
         buildTimeSankeyFromPulls,
         buildTimeWithMeetingSankeyFromPulls,
+        calculateRaidDurationsByDate,
       } from "./src/charts/sankey/sankeyData.js";
       import { renderSankey } from "./src/charts/sankey/sankeyRenderer.js";
       import {
@@ -756,7 +811,10 @@
       const sourceUrlEl = document.querySelector("#source-url");
       const summarySelectedEl = document.querySelector("#summary-selected");
       const summaryPullsEl = document.querySelector("#summary-pulls");
-      const summaryReportsEl = document.querySelector("#summary-reports");
+      const summaryPullTimeEl = document.querySelector("#summary-pull-time");
+      const summarySessionTimeEl = document.querySelector("#summary-session-time");
+      const summaryCalendarLabelEl = document.querySelector("#summary-calendar-label");
+      const summaryCalendarDaysEl = document.querySelector("#summary-calendar-days");
       const summaryWindowEl = document.querySelector("#summary-window");
       const dataSummaryEl = document.querySelector("#data-summary");
       const barSurfaceEl = document.querySelector("#bar-surface");
@@ -806,7 +864,8 @@
        */
       function setStatus(element, message, tone = "") {
         element.textContent = message;
-        element.className = `status ${tone}`;
+        const hidden = element.classList.contains("visually-hidden") ? " visually-hidden" : "";
+        element.className = `status ${tone}${hidden}`;
       }
 
       /**
@@ -940,32 +999,73 @@
        *
        * @param {object} summary
        */
-      function updateSummary({ selected = "No fight loaded", pulls = 0, reports = 0, window = "-" } = {}) {
+      function updateSummary({
+        selected = "No fight loaded",
+        pulls = 0,
+        pullDurationMs = null,
+        sessionDurationMs = null,
+        calendarDays = 0,
+        window = "-",
+      } = {}) {
         summarySelectedEl.textContent = selected;
         summaryPullsEl.textContent = String(pulls);
-        summaryReportsEl.textContent = String(reports);
+        renderSummaryDuration(summaryPullTimeEl, pullDurationMs);
+        renderSummaryDuration(summarySessionTimeEl, sessionDurationMs);
+        summaryCalendarLabelEl.textContent = calendarDays === 1 ? "Calendar day" : "Calendar days";
+        summaryCalendarDaysEl.textContent = String(calendarDays);
         summaryWindowEl.textContent = window;
         dataSummaryEl.hidden = selected === "No fight loaded";
+      }
+
+      /** Calculate summary durations using the same daily session definition as charts. */
+      function buildSummaryMetrics(pulls = []) {
+        const pullDurationMs = pulls.reduce((total, pull) => total + Number(pull.pullDurationMs || 0), 0);
+        const sessionDurationSeconds = [...calculateRaidDurationsByDate(pulls).values()]
+          .reduce((total, durationSeconds) => total + Number(durationSeconds || 0), 0);
+        const calendarDays = new Set(pulls.map((pull) => pull.raidDate).filter(Boolean)).size;
+        return {
+          calendarDays,
+          pullDurationMs,
+          sessionDurationMs: sessionDurationSeconds * 1_000,
+        };
+      }
+
+      /** Render duration values with distinct, readable number and unit styles. */
+      function renderSummaryDuration(element, durationMs) {
+        const duration = Number(durationMs);
+        if (!Number.isFinite(duration)) {
+          element.textContent = "-";
+          element.removeAttribute("aria-label");
+          return;
+        }
+        const totalMinutes = Math.max(0, Math.round(duration / 60_000));
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        const parts = hours > 0 ? [[hours, "h"], [minutes, "m"]] : [[minutes, "m"]];
+        element.replaceChildren(...parts.flatMap(([value, unit]) => {
+          const number = document.createElement("span");
+          number.className = "time-duration-number";
+          number.textContent = String(value);
+          const unitLabel = document.createElement("span");
+          unitLabel.className = "time-duration-unit";
+          unitLabel.textContent = unit;
+          return [number, unitLabel];
+        }));
+        element.setAttribute("aria-label", formatSummaryDuration(duration));
+      }
+
+      /** Format a non-negative millisecond duration as a compact hours/minutes value. */
+      function formatSummaryDuration(durationMs) {
+        const totalMinutes = Math.max(0, Math.round(Number(durationMs || 0) / 60_000));
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return hours > 0 ? `${hours}h ${String(minutes).padStart(2, "0")}m` : `${minutes}m`;
       }
 
       /** Show or hide both chart families as one result surface. */
       function setChartSurfacesVisible(visible) {
         barSurfaceEl.hidden = !visible;
         sankeySurfaceEl.hidden = !visible;
-      }
-
-      /**
-       * Format report-detail progress for the visible summary. A partial final
-       * percentage is expected when the chronological loader finds first clear
-       * and deliberately avoids opening later reports.
-       *
-       * @param {number} openedReports
-       * @param {number} totalReports
-       * @returns {string}
-       */
-      function formatReportProgress(openedReports, totalReports) {
-        const percentage = totalReports > 0 ? Math.round((openedReports / totalReports) * 100) : 0;
-        return `${openedReports} / ${totalReports} (${percentage}%)`;
       }
 
       /**
@@ -1347,11 +1447,8 @@
 
       /** Rebuild one selected fight's graph input from its current zone cache. */
       async function loadSelectedUltimate(group, zone, { renderCharts = true } = {}) {
-        const totalReports = zone.reportCount;
-        const openedReports = zone.detailsLoaded;
         updateSummary({
           selected: group.ultimate.displayName,
-          reports: formatReportProgress(openedReports, totalReports),
         });
         setStatus(workflowStatusEl, `Loading available data for ${group.ultimate.displayName}...`);
         resetChartExportState();
@@ -1377,10 +1474,11 @@
         state.latestBundle = bundle;
         state.selectedUltimate = group.ultimate;
         state.csvExports = buildFflogsCsvExports(bundle);
+        const summaryMetrics = buildSummaryMetrics(bundle.pulls);
         updateSummary({
           selected: group.ultimate.displayName,
           pulls: bundle.pulls.length,
-          reports: openedReports,
+          ...summaryMetrics,
           window:
             sortedPulls.length > 0
               ? `${sortedPulls[0]?.raidDate || "-"} - ${sortedPulls.at(-1)?.raidDate || "-"}`
@@ -1408,7 +1506,7 @@
         renderLiveSankeyBtn.disabled = !renderCharts;
         if (renderCharts) {
           await renderChartsFromPulls(bundle.pulls, "Loaded FFLogs pulls", group.ultimate);
-          setStatus(workflowStatusEl, `Loaded ${bundle.pulls.length} pull(s) from ${openedReports} report(s).`, "ok");
+          setStatus(workflowStatusEl, `Loaded ${bundle.pulls.length} pull(s) from ${zone.detailsLoaded} report(s).`, "ok");
         } else {
           setStatus(workflowStatusEl, `Searching ${group.ultimate.displayName}; ${bundle.pulls.length} pull(s) cached...`);
         }
@@ -1675,7 +1773,9 @@
       <div class="summary">
         <span class="muted">Selected: ${escapeHtml(summarySelectedEl.textContent)}</span>
         <span class="muted">Pulls: ${escapeHtml(summaryPullsEl.textContent)}</span>
-        <span class="muted">Reports opened: ${escapeHtml(summaryReportsEl.textContent)}</span>
+        <span class="muted">Pull time: ${escapeHtml(summaryPullTimeEl.getAttribute("aria-label") || summaryPullTimeEl.textContent)}</span>
+        <span class="muted">Full session time: ${escapeHtml(summarySessionTimeEl.getAttribute("aria-label") || summarySessionTimeEl.textContent)}</span>
+        <span class="muted">${escapeHtml(summaryCalendarLabelEl.textContent)}: ${escapeHtml(summaryCalendarDaysEl.textContent)}</span>
         <span class="muted">Data window: ${escapeHtml(summaryWindowEl.textContent)}</span>
       </div>
       <nav class="tabs" aria-label="${escapeHtml(capitalize(family))} chart views">${tabs}</nav>

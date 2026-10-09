@@ -7,6 +7,7 @@
  */
 
 import { getChartColorsForRaid } from "../../config/chartColors.js";
+import { positionTooltipInContainer } from "../shared/tooltipPosition.js";
 
 /**
  * Render one Sankey chart into a browser element.
@@ -107,9 +108,8 @@ export function renderSankey(container, sankeyData, { title = "", colors = getCh
     .on("mousemove", (event, link) => {
       tooltip
         .style("display", "block")
-        .style("left", `${event.offsetX + 16}px`)
-        .style("top", `${event.offsetY + 16}px`)
         .text(formatLinkTooltip(link, sankeyData.metricType));
+      positionTooltipInContainer(tooltip.node(), container, event);
     })
     .on("mouseleave", () => tooltip.style("display", "none"));
 

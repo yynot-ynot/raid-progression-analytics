@@ -17,6 +17,15 @@ test("chart download controls are hidden before any chart is rendered", () => {
   assert.match(indexHtml, /\.split-download\[hidden\]\s*\{\s*display: none;/);
 });
 
+test("chart surfaces omit redundant visible titles and rendered-count status text", () => {
+  assert.doesNotMatch(indexHtml, /<h2>Bar Analysis<\/h2>/);
+  assert.doesNotMatch(indexHtml, /<h2>Sankey Analysis<\/h2>/);
+  assert.match(indexHtml, /id="bar-status" class="visually-hidden" aria-live="polite"/);
+  assert.match(indexHtml, /id="sankey-status" class="visually-hidden" aria-live="polite"/);
+  assert.match(indexHtml, /const hidden = element\.classList\.contains\("visually-hidden"\)/);
+  assert.match(indexHtml, /\.tabs \.split-download/);
+});
+
 test("summary and charts appear only for selected or rendered data", () => {
   assert.match(indexHtml, /dataSummaryEl\.hidden = selected === "No fight loaded";/);
   assert.match(indexHtml, /function setChartSurfacesVisible\(visible\)/);
@@ -98,14 +107,28 @@ test("authentication failures use the standard unauthenticated status", () => {
 // A selected fight reads its opened zone's cache. The zone loader owns FFLogs
 // detail requests, and selection itself does not invoke an API loader.
 test("selected Ultimate loading reuses opened-zone details", () => {
-  assert.match(indexHtml, /function formatReportProgress\(openedReports, totalReports\)/);
-  assert.match(indexHtml, /reports: formatReportProgress\(openedReports, totalReports\)/);
   assert.match(indexHtml, /reportDetails: group\.reportDetails,/);
-  assert.match(indexHtml, /pulls: bundle\.pulls\.length,\s*reports: openedReports,/);
+  assert.match(indexHtml, /const summaryMetrics = buildSummaryMetrics\(bundle\.pulls\);/);
+  assert.match(indexHtml, /pulls: bundle\.pulls\.length,\s*\.\.\.summaryMetrics,/);
   assert.match(indexHtml, /Loading available data for \$\{group\.ultimate\.displayName\}/);
   assert.match(indexHtml, /function openZone\(zone\)/);
   assert.match(indexHtml, /const existing = state\.zoneLoads\.get\(zone\.key\);/);
   assert.match(indexHtml, /if \(existing\) return existing\.done;/);
+});
+
+test("summary groups pull and session time before calendar days and the data window", () => {
+  assert.match(indexHtml, /id="summary-pull-time"/);
+  assert.match(indexHtml, /id="summary-session-time"/);
+  assert.match(indexHtml, /number\.className = "time-duration-number";/);
+  assert.match(indexHtml, /unitLabel\.className = "time-duration-unit";/);
+  assert.match(indexHtml, /function renderSummaryDuration\(element, durationMs\)/);
+  assert.match(indexHtml, /font-variant-numeric: tabular-nums;/);
+  assert.match(indexHtml, /Includes time between pulls: meetings, breaks, and DCs\./);
+  assert.match(indexHtml, /id="summary-calendar-label"/);
+  assert.match(indexHtml, /calendarDays === 1 \? "Calendar day" : "Calendar days"/);
+  assert.doesNotMatch(indexHtml, /id="summary-reports"/);
+  assert.match(indexHtml, /function buildSummaryMetrics\(pulls = \[\]\)/);
+  assert.match(indexHtml, /calculateRaidDurationsByDate\(pulls\)/);
 });
 
 test("zone picker preserves first-seen order and coalesces repeated opens", () => {
