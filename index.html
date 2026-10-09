@@ -676,6 +676,7 @@
       } from "./src/charts/bar/barData.js";
       import { renderStackedBar } from "./src/charts/bar/barRenderer.js";
       import { getChartColorsForRaid } from "./src/config/chartColors.js";
+      import { findLegacyZoneExpansion } from "./src/config/legacyZoneMetadata.js";
       import { isVisibleUltimateZoneName } from "./src/config/ultimateEncounters.js";
       import { completeLogin, startLogin } from "./src/fflogs/auth/fflogsAuth.js";
       import { TokenStore } from "./src/fflogs/auth/tokenStore.js";
@@ -1187,9 +1188,10 @@
           const wrapper = document.createElement("div");
           wrapper.className = "zone-group";
           const zoneButton = document.createElement("button");
+          const displayName = zoneDisplayName(zone);
           zoneButton.className = `zone-choice${state.activeZoneKey === zone.key ? " active" : ""}`;
-          zoneButton.innerHTML = `<span>${escapeHtml(zone.zoneName)}</span><span class="zone-meta">${view.detailsLoaded || 0} / ${zone.reportCount} reports${loading ? " · Loading..." : view.complete ? " · Ready" : ""}</span>`;
-          zoneButton.title = `Open ${zone.zoneName} report details`;
+          zoneButton.innerHTML = `<span>${escapeHtml(displayName)}</span><span class="zone-meta">${view.detailsLoaded || 0} / ${zone.reportCount} reports${loading ? " · Loading..." : view.complete ? " · Ready" : ""}</span>`;
+          zoneButton.title = `Open ${displayName} report details`;
           zoneButton.addEventListener("click", () => openZone(zone).catch(handleWorkflowError));
           wrapper.append(zoneButton);
 
@@ -1220,6 +1222,17 @@
       /** One currently confirmed fight leaves no fight-selection decision. */
       function hasSingleSupportedFight(zone) {
         return Boolean(zone?.fights?.length === 1);
+      }
+
+      /**
+       * Add verified expansion provenance to a Legacy zone picker label.
+       * This is display-only metadata; encounter IDs remain authoritative.
+       */
+      function zoneDisplayName(zone) {
+        const expansion = zone?.zoneName === "Ultimates (Legacy)"
+          ? findLegacyZoneExpansion(zone.zoneId)
+          : null;
+        return expansion ? `${zone.zoneName} · ${expansion}` : zone.zoneName;
       }
 
       /** Add an expansion label only where a Legacy scope needs disambiguation. */

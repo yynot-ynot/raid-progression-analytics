@@ -88,6 +88,9 @@ test("zone picker preserves first-seen order and coalesces repeated opens", () =
   assert.match(indexHtml, /activeZoneKey/);
   assert.match(indexHtml, /Checking fights/);
   assert.match(indexHtml, /function hasSingleSupportedFight\(zone\)/);
+  assert.match(indexHtml, /findLegacyZoneExpansion/);
+  assert.match(indexHtml, /function zoneDisplayName\(zone\)/);
+  assert.match(indexHtml, /return expansion \? `\$\{zone\.zoneName\} · \$\{expansion\}` : zone\.zoneName;/);
   assert.match(indexHtml, /function fightDisplayName\(group, zone\)/);
   assert.match(indexHtml, /zone\.zoneName === "Ultimates \(Legacy\)"/);
   assert.match(indexHtml, /hasSingleSupportedFight\(update\.zone\)/);
