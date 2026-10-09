@@ -8,9 +8,26 @@ const indexHtml = readFileSync(new URL("../../index.html", import.meta.url), "ut
 // controls should not be visible until a chart family has rendered, and their
 // visibility should not depend on live FFLogs CSV state.
 test("chart download controls are hidden before any chart is rendered", () => {
+  assert.match(indexHtml, /<section id="data-summary" class="section summary" hidden>/);
+  assert.match(indexHtml, /<section id="bar-surface" class="surface" hidden>/);
+  assert.match(indexHtml, /<section id="sankey-surface" class="surface" hidden>/);
+  assert.match(indexHtml, /#data-summary\[hidden\],[\s\S]*#bar-surface\[hidden\],[\s\S]*#sankey-surface\[hidden\],[\s\S]*#debug-section\[hidden\]\s*\{\s*display: none;/);
   assert.match(indexHtml, /<div class="split-download" data-download-family="bar" hidden>/);
   assert.match(indexHtml, /<div class="split-download" data-download-family="sankey" hidden>/);
   assert.match(indexHtml, /\.split-download\[hidden\]\s*\{\s*display: none;/);
+});
+
+test("summary and charts appear only for selected or rendered data", () => {
+  assert.match(indexHtml, /dataSummaryEl\.hidden = selected === "No fight loaded";/);
+  assert.match(indexHtml, /function setChartSurfacesVisible\(visible\)/);
+  assert.match(indexHtml, /resetChartExportState\(\);\s*setChartSurfacesVisible\(false\);\s*renderLiveSankeyBtn\.disabled = true;/);
+  assert.match(indexHtml, /setChartSurfacesVisible\(false\);\s*setChartLoading\(\[barTimeEl/);
+  assert.match(indexHtml, /async function renderChartsFromPulls[\s\S]*setChartSurfacesVisible\(true\);/);
+});
+
+test("debug tools are visible only on localhost", () => {
+  assert.match(indexHtml, /<section id="debug-section" class="section" hidden>/);
+  assert.match(indexHtml, /debugSectionEl\.hidden = window\.location\.hostname !== "localhost";/);
 });
 
 test("chart export state is managed separately from CSV export state", () => {
@@ -91,8 +108,9 @@ test("zone picker preserves first-seen order and coalesces repeated opens", () =
   assert.match(indexHtml, /findLegacyZoneExpansion/);
   assert.match(indexHtml, /function zoneDisplayName\(zone\)/);
   assert.match(indexHtml, /return expansion \? `\$\{zone\.zoneName\} · \$\{expansion\}` : zone\.zoneName;/);
-  assert.match(indexHtml, /function fightDisplayName\(group, zone\)/);
-  assert.match(indexHtml, /zone\.zoneName === "Ultimates \(Legacy\)"/);
+  assert.match(indexHtml, /function fightDisplayName\(group\)/);
+  assert.match(indexHtml, /return group\.ultimate\.displayName;/);
+  assert.doesNotMatch(indexHtml, /\$\{group\.ultimate\.displayName\} \(\$\{group\.ultimate\.expansion\}\)/);
   assert.match(indexHtml, /hasSingleSupportedFight\(update\.zone\)/);
 });
 

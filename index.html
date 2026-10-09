@@ -179,6 +179,14 @@
         padding: 16px;
       }
 
+      /* Component display rules must not override conditional surface state. */
+      #data-summary[hidden],
+      #bar-surface[hidden],
+      #sankey-surface[hidden],
+      #debug-section[hidden] {
+        display: none;
+      }
+
       .source-grid {
         align-items: end;
         display: grid;
@@ -565,14 +573,14 @@
           </div>
         </section>
 
-        <section class="section summary">
+        <section id="data-summary" class="section summary" hidden>
           <div class="stat"><span class="muted">Selected</span><strong id="summary-selected">No fight loaded</strong></div>
           <div class="stat"><span class="muted">Pulls</span><strong id="summary-pulls">0</strong></div>
           <div class="stat"><span class="muted">Reports opened</span><strong id="summary-reports">0</strong></div>
           <div class="stat"><span class="muted">Data window</span><strong id="summary-window">-</strong></div>
         </section>
 
-        <section class="surface">
+        <section id="bar-surface" class="surface" hidden>
           <nav class="tabs" aria-label="Bar chart views">
             <button class="tab active" data-tab-group="bar" data-target="bar-time">Daily Hours</button>
             <button class="tab" data-tab-group="bar" data-target="bar-pulls">Daily Pull Count</button>
@@ -604,7 +612,7 @@
           <div id="bar-meeting" class="chart-panel"></div>
         </section>
 
-        <section class="surface">
+        <section id="sankey-surface" class="surface" hidden>
           <nav class="tabs" aria-label="Sankey chart views">
             <button class="tab active" data-tab-group="sankey" data-target="sankey-time">Phase Time Progression</button>
             <button class="tab" data-tab-group="sankey" data-target="sankey-pulls">Phase Pull Progression</button>
@@ -636,7 +644,7 @@
           <div id="sankey-meeting" class="chart-panel sankey-panel"></div>
         </section>
 
-        <section class="section">
+        <section id="debug-section" class="section" hidden>
           <div class="surface-head">
             <div>
               <h2>Exports And Debug</h2>
@@ -737,6 +745,10 @@
       const summaryPullsEl = document.querySelector("#summary-pulls");
       const summaryReportsEl = document.querySelector("#summary-reports");
       const summaryWindowEl = document.querySelector("#summary-window");
+      const dataSummaryEl = document.querySelector("#data-summary");
+      const barSurfaceEl = document.querySelector("#bar-surface");
+      const sankeySurfaceEl = document.querySelector("#sankey-surface");
+      const debugSectionEl = document.querySelector("#debug-section");
       const barDownloadControlEl = document.querySelector('[data-download-family="bar"]');
       const sankeyDownloadControlEl = document.querySelector('[data-download-family="sankey"]');
       const connectBtn = document.querySelector("#connect");
@@ -757,6 +769,10 @@
       const downloadDiscoveryReportsBtn = document.querySelector("#download-discovery-reports");
       const renderLiveSankeyBtn = document.querySelector("#render-live-sankey");
       const renderFixtureSankeyBtn = document.querySelector("#render-fixture-sankey");
+
+      // Development fixtures and raw exports are intentionally unavailable on
+      // GitHub Pages. Browser-console diagnostics remain available everywhere.
+      debugSectionEl.hidden = window.location.hostname !== "localhost";
 
       /**
        * Execute one authenticated FFLogs GraphQL request.
@@ -916,6 +932,13 @@
         summaryPullsEl.textContent = String(pulls);
         summaryReportsEl.textContent = String(reports);
         summaryWindowEl.textContent = window;
+        dataSummaryEl.hidden = selected === "No fight loaded";
+      }
+
+      /** Show or hide both chart families as one result surface. */
+      function setChartSurfacesVisible(visible) {
+        barSurfaceEl.hidden = !visible;
+        sankeySurfaceEl.hidden = !visible;
       }
 
       /**
@@ -1130,6 +1153,7 @@
         downloadDiscoveryReportsBtn.disabled = true;
         setCsvExportState(false);
         resetChartExportState();
+        setChartSurfacesVisible(false);
         renderLiveSankeyBtn.disabled = true;
         updateSummary();
 
@@ -1207,7 +1231,7 @@
                 const encounterId = group.ultimate.encounterId;
                 const button = document.createElement("button");
                 button.className = `ultimate-choice${encounterId === state.activeEncounterId ? " active" : ""}`;
-                button.textContent = `${fightDisplayName(group, zone)} · ${group.reportCount} reports`;
+                button.textContent = `${fightDisplayName(group)} · ${group.reportCount} reports`;
                 button.title = `Encounter ${encounterId}, confirmed in ${zone.zoneName}`;
                 button.addEventListener("click", () => selectUltimate(group, view).catch(handleWorkflowError));
                 details.append(button);
@@ -1235,11 +1259,8 @@
         return expansion ? `${zone.zoneName} · ${expansion}` : zone.zoneName;
       }
 
-      /** Add an expansion label only where a Legacy scope needs disambiguation. */
-      function fightDisplayName(group, zone) {
-        if (zone.zoneName === "Ultimates (Legacy)") {
-          return `${group.ultimate.displayName} (${group.ultimate.expansion})`;
-        }
+      /** Use the detail-derived variant label without duplicating its expansion. */
+      function fightDisplayName(group) {
         return group.ultimate.displayName;
       }
 
@@ -1322,9 +1343,11 @@
         setStatus(workflowStatusEl, `Loading available data for ${group.ultimate.displayName}...`);
         resetChartExportState();
         if (renderCharts) {
+          setChartSurfacesVisible(true);
           setChartLoading([barTimeEl, barMeetingEl, barPullsEl], "Rendering final chart data...");
           setChartLoading([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], "Rendering final chart data...");
         } else {
+          setChartSurfacesVisible(false);
           setChartLoading([barTimeEl, barMeetingEl, barPullsEl], "Loading all zone reports before rendering charts...");
           setChartLoading([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], "Loading all zone reports before rendering charts...");
         }
@@ -1387,6 +1410,7 @@
        */
       async function renderChartsFromPulls(pulls, label, raidRef = null) {
         const colors = getChartColorsForRaid(raidRef);
+        setChartSurfacesVisible(true);
         resetChartExportState();
         setChartLoading([barTimeEl, barMeetingEl, barPullsEl], "Rendering bar charts...");
         setChartLoading([sankeyTimeEl, sankeyMeetingEl, sankeyPullsEl], "Rendering Sankey charts...");

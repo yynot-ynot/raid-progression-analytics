@@ -113,6 +113,23 @@ test("a Legacy zone splits detail-confirmed fights and never exposes its label a
   assert.equal(result.fights.some((group) => group.ultimate.displayName === "Ultimates (Legacy)"), false);
 });
 
+// Historical variants carry their expansion in the normalized detail label.
+// The picker must use this one source of display text rather than append a
+// second expansion suffix for Legacy scopes.
+test("a historical Legacy variant has one expansion-qualified display name", async () => {
+  const reports = [reportSummary({ code: "EW_TEA", zoneId: 43, zoneName: "Ultimates (Legacy)" })];
+  const queryFflogs = createQueryStub([
+    { match: "RaidTeamReports", response: () => reportPagePayload(reports) },
+    { match: "ReportFights", response: ({ variables }) => reportDetailPayload({ code: variables.code, encounterIds: [1062] }) },
+  ]);
+
+  const discovery = await discoverAvailableUltimates({ config: { guildId: 112977 }, queryFflogs });
+  const result = await loadZoneDetails({ zone: discovery.zones[0], config: { guildId: 112977 }, queryFflogs });
+
+  assert.equal(result.fights[0].ultimate.displayName, "The Epic of Alexander (Endwalker)");
+  assert.equal(result.fights[0].ultimate.displayName.includes("(Endwalker) (Endwalker)"), false);
+});
+
 test("Endwalker TOP and Dawntrail Legacy TOP remain separate zone-scoped results", async () => {
   const reports = [
     reportSummary({ code: "EW_TOP", zoneId: 53, zoneName: "The Omega Protocol" }),
