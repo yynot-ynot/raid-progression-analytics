@@ -16,7 +16,7 @@ import { positionTooltipInContainer } from "../shared/tooltipPosition.js";
  * @param {object} sankeyData
  * @param {{title?: string, colors?: object}} options
  */
-export function renderSankey(container, sankeyData, { title = "", colors = getChartColorsForRaid() } = {}) {
+export function renderSankey(container, sankeyData, { title = "", colors = getChartColorsForRaid(), width: requestedWidth = null } = {}) {
   if (!container) return;
   container.replaceChildren();
 
@@ -31,9 +31,9 @@ export function renderSankey(container, sankeyData, { title = "", colors = getCh
 
   // D3 is loaded by static script tags so the page stays backend-free.
   const d3 = globalThis.d3;
-  const width = Math.max(640, container.clientWidth || globalThis.innerWidth || 960);
+  const width = Math.max(640, requestedWidth || container.clientWidth || container.parentElement?.clientWidth || globalThis.innerWidth || 960);
   const compact = width < 980;
-  const height = compact ? 640 : 580;
+  const height = 620;
   const margin = {
     top: 28,
     right: compact ? 116 : Math.min(360, Math.max(260, width * 0.2)),
@@ -135,7 +135,7 @@ export function renderSankey(container, sankeyData, { title = "", colors = getCh
     .attr("dy", "0.35em")
     .attr("text-anchor", (node) => labelAnchor(node))
     .attr("font-family", "Georgia, Times New Roman, serif")
-    .attr("font-size", compact ? 12 : 14)
+    .attr("font-size", compact ? 14 : 16)
     .attr("font-weight", 400)
     .text((node) => formatNodeLabel(node, compact));
 }

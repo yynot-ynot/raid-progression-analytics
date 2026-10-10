@@ -449,7 +449,7 @@
         display: none;
         font-weight: 700;
         justify-content: center;
-        min-height: clamp(340px, 48vh, 620px);
+        min-height: clamp(420px, 56vh, 620px);
         overflow: hidden;
         position: relative;
       }
@@ -459,7 +459,7 @@
       }
 
       .chart-panel.sankey-panel {
-        min-height: clamp(500px, 62vh, 780px);
+        min-height: clamp(420px, 56vh, 620px);
       }
 
       .chart-loading {
@@ -486,6 +486,7 @@
 
       .chart-panel svg {
         display: block;
+        height: auto;
         min-width: 0;
         width: 100%;
       }
@@ -1868,12 +1869,14 @@
         const meetingData = buildTimeWithMeetingSankeyFromPulls(pulls);
         const pullData = buildPullSankeyFromPulls(pulls);
 
-        renderSankey(sankeyTimeEl, timeData, { title: `${label}: Time by progression phase`, colors });
+        const width = getChartFrameWidth(sankeySurfaceEl);
+        renderSankey(sankeyTimeEl, timeData, { title: `${label}: Time by progression phase`, colors, width });
         renderSankey(sankeyMeetingEl, meetingData, {
           title: `${label}: Time by progression phase with meetings, breaks, and DCs`,
           colors,
+          width,
         });
-        renderSankey(sankeyPullsEl, pullData, { title: `${label}: Pulls by progression phase`, colors });
+        renderSankey(sankeyPullsEl, pullData, { title: `${label}: Pulls by progression phase`, colors, width });
         setChartExportState("sankey", true);
         setStatus(
           sankeyStatusEl,
@@ -1894,18 +1897,25 @@
         const meetingData = buildMeetingTimeBarFromPulls(pulls);
         const pullData = buildPullBarFromPulls(pulls);
 
-        renderStackedBar(barTimeEl, timeData, { title: `${label}: Total time by phase`, colors });
+        const width = getChartFrameWidth(barSurfaceEl);
+        renderStackedBar(barTimeEl, timeData, { title: `${label}: Total time by phase`, colors, width });
         renderStackedBar(barMeetingEl, meetingData, {
           title: `${label}: Total time by phase with meetings, breaks, and DCs`,
           colors,
+          width,
         });
-        renderStackedBar(barPullsEl, pullData, { title: `${label}: Pull count by phase`, colors });
+        renderStackedBar(barPullsEl, pullData, { title: `${label}: Pull count by phase`, colors, width });
         setChartExportState("bar", true);
         setStatus(
           barStatusEl,
           `Rendered ${pulls.length} pull(s) across ${timeData.rows.length} calendar day(s).`,
           "ok",
         );
+      }
+
+      /** Use one visible surface width for every tab in a chart family. */
+      function getChartFrameWidth(surface) {
+        return Math.round(surface?.clientWidth || window.innerWidth || 960);
       }
 
       /**

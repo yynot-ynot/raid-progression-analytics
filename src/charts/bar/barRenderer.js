@@ -15,7 +15,7 @@ import { positionTooltipInContainer } from "../shared/tooltipPosition.js";
  * @param {object} chartData
  * @param {{title?: string, colors?: object}} options
  */
-export function renderStackedBar(container, chartData, { title = "", colors = getChartColorsForRaid() } = {}) {
+export function renderStackedBar(container, chartData, { title = "", colors = getChartColorsForRaid(), width: requestedWidth = null } = {}) {
   if (!container) return;
   container.replaceChildren();
 
@@ -30,7 +30,7 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
 
   // D3 is loaded by static script tags so the page stays backend-free.
   const d3 = globalThis.d3;
-  const width = Math.max(640, container.clientWidth || globalThis.innerWidth || 960);
+  const width = Math.max(640, requestedWidth || container.clientWidth || container.parentElement?.clientWidth || globalThis.innerWidth || 960);
   const height = 620;
   const margin = {
     top: 54,
@@ -57,7 +57,7 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .attr("x", width / 2)
     .attr("y", 26)
     .attr("text-anchor", "middle")
-    .attr("font-size", 18)
+    .attr("font-size", 22)
     .attr("font-weight", 700)
     .text(chartData.title || title);
 
@@ -117,7 +117,7 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .selectAll("text")
     .attr("transform", "rotate(-45)")
     .attr("text-anchor", "end")
-    .attr("font-size", 11);
+    .attr("font-size", 13);
 
   chartLayer
     .append("g")
@@ -128,7 +128,7 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .attr("x", innerWidth / 2)
     .attr("y", innerHeight + 72)
     .attr("text-anchor", "middle")
-    .attr("font-size", 14)
+    .attr("font-size", 16)
     .attr("font-weight", 400)
     .text("Date");
 
@@ -138,7 +138,7 @@ export function renderStackedBar(container, chartData, { title = "", colors = ge
     .attr("x", -innerHeight / 2)
     .attr("y", -52)
     .attr("text-anchor", "middle")
-    .attr("font-size", 14)
+    .attr("font-size", 16)
     .attr("font-weight", 400)
     .text(chartData.yLabel);
 
@@ -167,7 +167,7 @@ function renderLegend(svg, series, colors, plotCenterX, plotBottomY) {
     .attr("x", legendWidth / 2)
     .attr("y", -26)
     .attr("text-anchor", "middle")
-    .attr("font-size", 12)
+    .attr("font-size", 14)
     .attr("font-weight", 400)
     .text("Phases");
 
@@ -187,7 +187,7 @@ function renderLegend(svg, series, colors, plotCenterX, plotBottomY) {
       .append("text")
       .attr("x", 26)
       .attr("y", 10)
-      .attr("font-size", 13)
+      .attr("font-size", 15)
       .attr("font-weight", 400)
       .text(key === "Meeting" ? "Meetings, breaks, and DCs" : compactSeriesLabel(key));
     offset += itemWidths[index];
