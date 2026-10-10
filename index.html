@@ -607,6 +607,198 @@
           padding-bottom: 10px;
         }
       }
+      /* Editorial report treatment: designed for reading a progression story. */
+      :root {
+        color: #2a2520;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      body {
+        background: #f3efe6;
+      }
+
+      main {
+        max-width: 1250px;
+        padding: 56px 28px 90px;
+      }
+
+      .topbar {
+        align-items: flex-end;
+        border-bottom: 3px solid #2a2520;
+        margin-bottom: 34px;
+        padding-bottom: 22px;
+      }
+
+      .topbar h1 {
+        font-size: clamp(38px, 5vw, 70px);
+        font-weight: 500;
+        letter-spacing: -0.055em;
+        line-height: 0.92;
+        margin-bottom: 18px;
+        max-width: none;
+        white-space: nowrap;
+      }
+
+      .topbar .muted {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        max-width: none;
+        white-space: nowrap;
+      }
+
+      .stack {
+        gap: 32px;
+      }
+
+      #source-section {
+        background: transparent;
+        border: 0;
+        border-bottom: 1px solid #c8bdad;
+        border-radius: 0;
+        padding: 0 0 24px;
+      }
+
+      #source-section input,
+      #source-section select {
+        background: #fffdf8;
+        border-color: #c8bdad;
+        border-radius: 0;
+      }
+
+      #source-section button {
+        background: #2a2520;
+        border-color: #2a2520;
+        border-radius: 0;
+        color: #fffdf8;
+      }
+
+      #source-section .profile-source,
+      #source-section .zone-choice,
+      #source-section .ultimate-choice {
+        background: #2a2520;
+        border-color: #2a2520;
+        color: #fffdf8;
+      }
+
+      #source-section .profile-source:hover,
+      #source-section .profile-source.active,
+      #source-section .zone-choice:hover,
+      #source-section .zone-choice.active,
+      #source-section .ultimate-choice:hover,
+      #source-section .ultimate-choice.active {
+        background: #51483d;
+        border-color: #51483d;
+        color: #fffdf8;
+      }
+
+      #source-section .zone-meta,
+      #source-section .zone-choice:hover .zone-meta {
+        color: #e1d8cb;
+      }
+
+      .summary {
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        grid-template-columns: 2fr repeat(4, 1fr);
+        margin: 0;
+        padding: 0;
+      }
+
+      .stat {
+        background: transparent;
+        border: 0;
+        border-left: 1px solid #c8bdad;
+        border-radius: 0;
+        min-height: auto;
+        padding: 0 20px;
+      }
+
+      .stat:first-child {
+        border-left: 0;
+        padding-left: 0;
+      }
+
+      .stat strong {
+        font-size: 24px;
+      }
+
+      .muted,
+      .time-duration-unit {
+        color: #7f7364;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+
+      .surface {
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+      }
+
+      .tabs {
+        border-bottom: 1px solid #2a2520;
+        margin: 0 0 16px;
+        padding: 0;
+      }
+
+      .tab {
+        border-width: 2px;
+        color: #7f7364;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+
+      .tab.active {
+        border-color: #bd5b35;
+        color: #2a2520;
+      }
+
+      .chart-panel {
+        background: #fffdf8;
+        border: 1px solid #d8cdbd;
+        box-shadow: 8px 8px 0 #e2d7c7;
+      }
+
+      .chart-panel svg {
+        background: #fffdf8;
+      }
+
+      #sankey-surface {
+        border-top: 3px solid #2a2520;
+        padding-top: 26px;
+      }
+
+      #debug-section {
+        border-top: 1px solid #c8bdad;
+        padding-top: 18px;
+      }
+
+      @media (max-width: 760px) {
+        main {
+          padding: 30px 16px 54px;
+        }
+
+        .topbar {
+          align-items: start;
+        }
+
+        .topbar h1 {
+          white-space: normal;
+        }
+
+        .topbar .muted {
+          white-space: normal;
+        }
+
+        .summary {
+          grid-template-columns: 1fr 1fr;
+          row-gap: 20px;
+        }
+
+        .stat:nth-child(odd) {
+          border-left: 0;
+          padding-left: 0;
+        }
+      }
     </style>
   </head>
   <body>
