@@ -690,6 +690,11 @@
         color: #fffdf8;
       }
 
+      #source-section .profile-source.static-unavailable {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+
       #source-section .zone-meta,
       #source-section .zone-choice:hover .zone-meta {
         color: #e1d8cb;
@@ -823,7 +828,7 @@
               <input
                 id="source-url"
                 aria-label="Paste an FFLogs link"
-                placeholder="Paste FFLogs link"
+                placeholder="Paste an FFLogs link to a report or personal logs"
                 autocomplete="off"
                 disabled
               />
@@ -949,6 +954,8 @@
       import { completeLogin, startLogin } from "./src/fflogs/auth/fflogsAuth.js";
       import { TokenStore } from "./src/fflogs/auth/tokenStore.js";
       import { loadCurrentUser } from "./src/fflogs/static-data/currentUserLoader.js";
+      import { loadUserById } from "./src/fflogs/static-data/userLookup.js";
+      import { loadReportOwner } from "./src/fflogs/static-data/reportOwnerLookup.js";
       import { buildPrimaryReportSourceActions } from "./src/fflogs/static-data/sourceSelection.js";
       import { buildFflogsCsvExports } from "./src/domain/csv-equivalent/fflogsCsvExports.js";
       import { parseCsv } from "./src/ingestion/csv/parseCsv.js";
@@ -982,6 +989,7 @@
         sourceOptions: [],
       };
       let sankeyLibraryPromise = null;
+      let pastedSourceRefreshVersion = 0;
 
       const authStatusEl = document.querySelector("#auth-status");
       const workflowStatusEl = document.querySelector("#workflow-status");
@@ -1311,6 +1319,127 @@
         });
       }
 
+      /** Render the direct source buttons while preserving the current selected source. */
+      function renderProfileSourceActions() {
+        profileSourceActionsEl.hidden = state.sourceOptions.length === 0;
+        sourceDividerEl.hidden = state.sourceOptions.length === 0;
+        sourceSectionEl.classList.toggle("manual-only", state.sourceOptions.length === 0);
+        profileSourceActionsEl.replaceChildren(
+          ...state.sourceOptions.map((source) => {
+            const button = document.createElement("button");
+            button.className = "profile-source";
+            button.classList.toggle("static-unavailable", Boolean(source.disabled));
+            button.dataset.sourceId = source.id;
+            button.dataset.sourceKind = source.kind;
+            button.textContent = source.label;
+            button.setAttribute("aria-pressed", "false");
+            button.disabled = Boolean(source.disabled);
+            if (source.fixedWidth) button.style.width = `${source.fixedWidth}px`;
+            if (source.labelOffset != null) {
+              button.style.paddingLeft = `${source.labelOffset}px`;
+              button.style.textAlign = "left";
+            }
+            button.addEventListener("click", () => {
+              if (source.disabled) return;
+              setSelectedProfileSource(source.id);
+              sourceUrlEl.value = source.url;
+              runDiscovery({ sourceUrl: source.url, automatic: true }).catch(handleWorkflowError);
+            });
+            return button;
+          }),
+        );
+      }
+
+      /** Keep the existing action layout in place while a replacement is resolved. */
+      function setProfileSourceActionsDisabled(disabled) {
+        profileSourceActionsEl.setAttribute("aria-busy", String(disabled));
+        profileSourceActionsEl.querySelectorAll("button").forEach((button) => {
+          button.disabled = disabled;
+        });
+      }
+
+      /** Preserve the existing Static control and label position for a blank placeholder. */
+      function getStaticActionLayout() {
+        const staticButton = profileSourceActionsEl.querySelector('[data-source-kind="static"]');
+        if (!staticButton) return null;
+
+        const textRange = document.createRange();
+        textRange.selectNodeContents(staticButton);
+        const textBox = textRange.getBoundingClientRect();
+        const buttonBox = staticButton.getBoundingClientRect();
+        const borderLeft = Number.parseFloat(getComputedStyle(staticButton).borderLeftWidth) || 0;
+        return {
+          fixedWidth: Math.ceil(buttonBox.width),
+          labelOffset: Math.max(0, Math.round(textBox.left - buttonBox.left - borderLeft)),
+        };
+      }
+
+      /**
+       * Replace quick-source actions with the public identity behind an analyzed URL.
+       * This runs only after discovery succeeds, keeping the controls stable while
+       * someone types or pastes a link.
+       *
+       * @param {string} sourceUrl
+       */
+      async function refreshPastedSourceActions(sourceUrl) {
+        const refreshVersion = ++pastedSourceRefreshVersion;
+        let config;
+        try {
+          config = buildWorkflowSourceConfig({ sourceUrl, timeFrame: { preset: "all-history" } });
+        } catch {
+          state.sourceOptions = buildPrimaryReportSourceActions(state.currentUser);
+          renderProfileSourceActions();
+          setSelectedProfileSource(null);
+          return;
+        }
+
+        if (config.userId != null) {
+          let pastedUser = state.currentUser;
+          if (Number(config.userId) !== Number(state.currentUser?.id)) {
+            // Preserve the layout while the target profile resolves, but make
+            // the signed-in user's actions unavailable in the meantime.
+            setProfileSourceActionsDisabled(true);
+            try {
+              pastedUser = await loadUserById({ userId: config.userId, queryFflogs: queryWithToken });
+            } catch {
+              setProfileSourceActionsDisabled(false);
+              return;
+            }
+          }
+          if (refreshVersion !== pastedSourceRefreshVersion || !pastedUser) return;
+          state.sourceOptions = buildPrimaryReportSourceActions(pastedUser);
+          if (Number(config.userId) !== Number(state.currentUser?.id) && !state.sourceOptions.some((source) => source.kind === "static")) {
+            const staticLayout = getStaticActionLayout();
+            state.sourceOptions.unshift({
+              id: `static-unavailable:${config.userId}`,
+              kind: "static",
+              label: "Static:",
+              disabled: true,
+              ...staticLayout,
+            });
+          }
+          renderProfileSourceActions();
+          setSelectedProfileSource(null);
+          return;
+        }
+
+        if (config.guildId != null) {
+          const staticIdentity = await loadSourceIdentity(config);
+          if (refreshVersion !== pastedSourceRefreshVersion || !staticIdentity) return;
+          state.sourceOptions = [
+            {
+              id: `static:${config.guildId}`,
+              kind: "static",
+              label: staticIdentity.guildName ? `Static: ${staticIdentity.guildName}` : `Static ${config.guildId}`,
+              url: config.guildUrl,
+              sourceId: config.guildId,
+            },
+          ];
+          renderProfileSourceActions();
+          setSelectedProfileSource(null);
+        }
+      }
+
       /**
        * Render the direct profile-source buttons and start the default source.
        * One Static is shown at most; personal logs stays visible as the fallback.
@@ -1321,23 +1450,7 @@
         sourceWorkflowEl.hidden = false;
         sourceUrlEl.disabled = false;
         analyzeBtn.disabled = false;
-        profileSourceActionsEl.hidden = state.sourceOptions.length === 0;
-        sourceDividerEl.hidden = state.sourceOptions.length === 0;
-        sourceSectionEl.classList.toggle("manual-only", state.sourceOptions.length === 0);
-        profileSourceActionsEl.replaceChildren(
-          ...state.sourceOptions.map((source) => {
-            const button = document.createElement("button");
-            button.className = "profile-source";
-            button.dataset.sourceId = source.id;
-            button.textContent = source.label;
-            button.setAttribute("aria-pressed", "false");
-            button.addEventListener("click", () => {
-              setSelectedProfileSource(source.id);
-              runDiscovery({ sourceUrl: source.url, automatic: true }).catch(handleWorkflowError);
-            });
-            return button;
-          }),
-        );
+        renderProfileSourceActions();
 
         if (!state.sourceOptions.length) {
           setStatus(workflowStatusEl, "Enter an FFLogs source link to analyze.");
@@ -1439,6 +1552,22 @@
         return null;
       }
 
+      /** Convert a report link into its owner's personal-report source URL. */
+      async function resolvePersonalReportUrl(sourceUrl) {
+        const config = buildWorkflowSourceConfig({
+          sourceUrl,
+          timeFrame: { preset: "all-history" },
+        });
+        if (config.sourceType !== "report") return sourceUrl;
+
+        setStatus(workflowStatusEl, "Finding the report owner's personal logs...");
+        const owner = await loadReportOwner({ reportCode: config.reportCode, queryFflogs: queryWithToken });
+        if (!owner) throw new Error("FFLogs did not return an owner for this report");
+        const personalUrl = `https://www.fflogs.com/user/reports-list/${owner.id}`;
+        sourceUrlEl.value = personalUrl;
+        return personalUrl;
+      }
+
       /**
        * Discover supported Ultimates for a source's available FFLogs history.
        */
@@ -1461,6 +1590,8 @@
         setChartSurfacesVisible(false);
         renderLiveSankeyBtn.disabled = true;
         updateSummary();
+
+        sourceUrl = await resolvePersonalReportUrl(sourceUrl);
 
         state.config = buildWorkflowSourceConfig({
           sourceUrl,
@@ -2131,9 +2262,15 @@
         if (!event.target.closest(".split-download")) closeDownloadMenus();
       });
 
-      analyzeBtn.addEventListener("click", () => {
+      analyzeBtn.addEventListener("click", async () => {
         setSelectedProfileSource(null);
-        runDiscovery({ sourceUrl: sourceUrlEl.value }).catch(handleWorkflowError);
+        setProfileSourceActionsDisabled(false);
+        try {
+          await runDiscovery({ sourceUrl: sourceUrlEl.value });
+          await refreshPastedSourceActions(sourceUrlEl.value);
+        } catch (error) {
+          handleWorkflowError(error);
+        }
       });
 
       copyBtn.addEventListener("click", async () => {

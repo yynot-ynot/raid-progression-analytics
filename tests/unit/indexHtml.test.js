@@ -70,7 +70,7 @@ test("normal FFLogs flow uses direct profile-source actions and a zone-first pic
   assert.doesNotMatch(indexHtml, /id="reconnect"/);
   assert.doesNotMatch(indexHtml, /class="top-actions"/);
   assert.match(indexHtml, /id="profile-source-actions" class="profile-source-actions" hidden/);
-  assert.match(indexHtml, /id="source-url"[\s\S]*placeholder="Paste FFLogs link"/);
+  assert.match(indexHtml, /id="source-url"[\s\S]*placeholder="Paste an FFLogs link to a report or personal logs"/);
   assert.match(indexHtml, /id="analyze" disabled>Analyze<\/button>/);
   assert.match(indexHtml, /#analyze\s*\{\s*background: #2b674f;/);
   assert.match(indexHtml, /\.profile-source\.active\s*\{\s*background: #233142;/);
@@ -83,6 +83,18 @@ test("normal FFLogs flow uses direct profile-source actions and a zone-first pic
   assert.match(indexHtml, /sourceWorkflowEl\.hidden = false;/);
   assert.match(indexHtml, /else \{\s*sourceConnectEl\.hidden = false;/);
   assert.match(indexHtml, /function setSelectedProfileSource\(sourceId\)/);
+  assert.match(indexHtml, /function renderProfileSourceActions\(\)/);
+  assert.match(indexHtml, /static-unavailable/);
+  assert.match(indexHtml, /label: "Static:"/);
+  assert.match(indexHtml, /function getStaticActionLayout\(\)/);
+  assert.match(indexHtml, /labelOffset/);
+  assert.match(indexHtml, /function refreshPastedSourceActions\(sourceUrl\)/);
+  assert.match(indexHtml, /function resolvePersonalReportUrl\(sourceUrl\)/);
+  assert.match(indexHtml, /loadReportOwner\(\{ reportCode: config\.reportCode, queryFflogs: queryWithToken \}\)/);
+  assert.match(indexHtml, /placeholder="Paste an FFLogs link to a report or personal logs"/);
+  assert.match(indexHtml, /loadUserById\(\{ userId: config\.userId, queryFflogs: queryWithToken \}\)/);
+  assert.match(indexHtml, /await runDiscovery\(\{ sourceUrl: sourceUrlEl\.value \}\);\s*await refreshPastedSourceActions\(sourceUrlEl\.value\)/);
+  assert.doesNotMatch(indexHtml, /sourceUrlEl\.addEventListener\("input"/);
   assert.match(indexHtml, /#source-section\.manual-only \.source-grid/);
   assert.match(indexHtml, /button\.setAttribute\("aria-pressed", String\(isSelected\)\)/);
   assert.match(indexHtml, /await runDiscovery\(\{ sourceUrl: state\.sourceOptions\[0\]\.url, automatic: true \}\)/);

@@ -40,6 +40,20 @@ test("parseFflogsSourceUrl parses personal reports-list URL", () => {
   );
 });
 
+test("parseFflogsSourceUrl parses a report link for personal-log resolution", () => {
+  assert.deepEqual(
+    parseFflogsSourceUrl("https://www.fflogs.com/reports/MaJcdnYA3VkZxz6L"),
+    {
+      sourceType: "report",
+      reportCode: "MaJcdnYA3VkZxz6L",
+      guildId: null,
+      guildUrl: null,
+      userId: null,
+      userUrl: null,
+    },
+  );
+});
+
 test("parseFflogsSourceUrl rejects unsupported or non-FFLogs URLs", () => {
   assert.throws(() => parseFflogsSourceUrl("https://example.com/guild/id/112977"), /fflogs\.com/);
   assert.throws(() => parseFflogsSourceUrl("https://www.fflogs.com/reports/abc"), /Unsupported/);

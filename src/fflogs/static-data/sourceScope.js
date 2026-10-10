@@ -11,6 +11,7 @@ const FFLOGS_HOST_RE = /(^|\.)fflogs\.com$/i;
  * - https://www.fflogs.com/guild/reports-list/112977
  * - https://www.fflogs.com/guild/id/112977
  * - https://www.fflogs.com/user/reports-list/467755
+ * - https://www.fflogs.com/reports/MaJcdnYA3VkZxz6L
  *
  * @param {string} sourceUrl
  * @returns {object}
@@ -51,6 +52,17 @@ export function parseFflogsSourceUrl(sourceUrl) {
     };
   }
 
+  if (root === "reports" && isReportCode(view)) {
+    return {
+      sourceType: "report",
+      reportCode: view,
+      guildId: null,
+      guildUrl: null,
+      userId: null,
+      userUrl: null,
+    };
+  }
+
   throw new Error("Unsupported FFLogs source URL");
 }
 
@@ -68,6 +80,7 @@ export function buildReportSourceConfig(sourceScope, filters = {}) {
     userId: sourceScope.userId ?? null,
     userUrl: sourceScope.userUrl ?? null,
     sourceType: sourceScope.sourceType,
+    reportCode: sourceScope.reportCode ?? null,
     guildTagId: filters.guildTagId ?? null,
     zoneId: filters.zoneId ?? null,
     gameZoneId: filters.gameZoneId ?? null,
@@ -107,4 +120,9 @@ export function buildDateRangePreset(preset, nowMs = Date.now()) {
 function parsePositiveInt(value) {
   if (!/^[1-9]\d*$/.test(value || "")) return null;
   return Number(value);
+}
+
+/** FFLogs report codes are URL-safe alphanumeric identifiers. */
+function isReportCode(value) {
+  return /^[a-z0-9]{6,}$/i.test(value || "");
 }

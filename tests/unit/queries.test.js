@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CURRENT_USER_QUERY } from "../../src/fflogs/api/queries/currentUser.js";
+import { USER_BY_ID_QUERY, USER_GUILDS_BY_ID_QUERY } from "../../src/fflogs/api/queries/userLookup.js";
+import { REPORT_OWNER_QUERY } from "../../src/fflogs/api/queries/reportOwner.js";
 import {
   GUILD_BY_ID_QUERY,
   GUILD_BY_NAME_QUERY,
@@ -16,6 +18,20 @@ test("current user query includes required user fields", () => {
   assert.match(CURRENT_USER_QUERY, /name/);
   assert.match(CURRENT_USER_QUERY, /guilds/);
   assert.match(CURRENT_USER_QUERY, /type/);
+});
+
+test("user lookup query requests only public identity", () => {
+  assert.match(USER_BY_ID_QUERY, /user\(id: \$userId\)/);
+  assert.match(USER_BY_ID_QUERY, /name/);
+  assert.doesNotMatch(USER_BY_ID_QUERY, /guilds/);
+  assert.match(USER_GUILDS_BY_ID_QUERY, /user\(id: \$userId\)/);
+  assert.match(USER_GUILDS_BY_ID_QUERY, /guilds/);
+});
+
+test("report owner query resolves only the report owner", () => {
+  assert.match(REPORT_OWNER_QUERY, /report\(code: \$code, allowUnlisted: true\)/);
+  assert.match(REPORT_OWNER_QUERY, /owner/);
+  assert.match(REPORT_OWNER_QUERY, /id/);
 });
 
 test("guild queries include FF-specific static and tag fields", () => {
