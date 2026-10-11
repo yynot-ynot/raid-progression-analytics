@@ -953,6 +953,14 @@
       import { findLegacyZoneExpansion } from "./src/config/legacyZoneMetadata.js";
       import { isVisibleUltimateZoneName } from "./src/config/ultimateEncounters.js";
       import { completeLogin, startLogin } from "./src/fflogs/auth/fflogsAuth.js";
+      import {
+        buildShareRelativeUrl,
+        hasOAuthCallback,
+        normalizeShareSelection,
+        parseShareSelection,
+        resolveAuthenticatedShareSelection,
+        savePendingShareSelection,
+      } from "./src/navigation/shareSelection.js";
       import { TokenStore } from "./src/fflogs/auth/tokenStore.js";
       import { loadCurrentUser } from "./src/fflogs/static-data/currentUserLoader.js";
       import { loadUserById } from "./src/fflogs/static-data/userLookup.js";
@@ -988,6 +996,7 @@
         reportDetailsByCode: new Map(),
         csvExports: null,
         sourceOptions: [],
+        shareSelection: parseShareSelection(window.location.search),
       };
       let sankeyLibraryPromise = null;
       let pastedSourceRefreshVersion = 0;
@@ -1320,6 +1329,18 @@
         });
       }
 
+      /** Replace the address-bar share state without adding browser-history noise. */
+      function replaceShareSelection(selection) {
+        state.shareSelection = normalizeShareSelection(selection);
+        window.history.replaceState({}, "", buildShareRelativeUrl(window.location, state.shareSelection));
+        return state.shareSelection;
+      }
+
+      /** Preserve any shared choice before FFLogs replaces the URL during OAuth. */
+      function saveShareSelectionForLogin() {
+        savePendingShareSelection(window.sessionStorage, state.shareSelection || parseShareSelection(window.location.search));
+      }
+
       /** Render the direct source buttons while preserving the current selected source. */
       function renderProfileSourceActions() {
         profileSourceActionsEl.hidden = state.sourceOptions.length === 0;
@@ -1445,13 +1466,25 @@
        * Render the direct profile-source buttons and start the default source.
        * One Static is shown at most; personal logs stays visible as the fallback.
        */
-      async function initializeAutomaticSourceFlow() {
+      async function initializeAutomaticSourceFlow({ sharedSelection = null } = {}) {
         state.sourceOptions = buildPrimaryReportSourceActions(state.currentUser);
         sourceConnectEl.hidden = true;
         sourceWorkflowEl.hidden = false;
         sourceUrlEl.disabled = false;
         analyzeBtn.disabled = false;
         renderProfileSourceActions();
+
+        if (sharedSelection?.source) {
+          const matchingSource = state.sourceOptions.find((source) => source.url === sharedSelection.source);
+          setSelectedProfileSource(matchingSource?.id || null);
+          sourceUrlEl.value = sharedSelection.source;
+          await runDiscovery({
+            sourceUrl: sharedSelection.source,
+            automatic: true,
+            restoreSelection: sharedSelection,
+          });
+          return;
+        }
 
         if (!state.sourceOptions.length) {
           setStatus(workflowStatusEl, "Enter an FFLogs source link to analyze.");
@@ -1572,7 +1605,7 @@
       /**
        * Discover supported Ultimates for a source's available FFLogs history.
        */
-      async function runDiscovery({ sourceUrl = sourceUrlEl.value, automatic = false } = {}) {
+      async function runDiscovery({ sourceUrl = sourceUrlEl.value, automatic = false, restoreSelection = null } = {}) {
         setStatus(workflowStatusEl, automatic ? "Finding available Ultimate reports..." : "Analyzing source link...");
         ultimateListEl.innerHTML = '<div class="muted">Loading...</div>';
         state.csvExports = null;
@@ -1597,6 +1630,11 @@
         state.config = buildWorkflowSourceConfig({
           sourceUrl,
           timeFrame: { preset: "all-history" },
+        });
+        replaceShareSelection({
+          source: sourceUrl,
+          zone: restoreSelection?.zone,
+          encounter: restoreSelection?.encounter,
         });
         state.team = await loadSourceIdentity(state.config);
         state.discovery = await discoverAvailableUltimates({
@@ -1630,7 +1668,30 @@
           discoveryPagesFetched: state.discovery.pagesFetched,
           zones: state.discovery.zones.map(summarizeZone),
         });
-        setStatus(workflowStatusEl, "Open an FFLogs zone to confirm its fights.", "ok");
+        if (restoreSelection?.zone) await restoreSharedSelection(restoreSelection);
+        else setStatus(workflowStatusEl, "Open an FFLogs zone to confirm its fights.", "ok");
+      }
+
+      /** Apply shared descendants only after their source has finished discovery. */
+      async function restoreSharedSelection(selection) {
+        const zone = state.discovery?.zones.find((candidate) => candidate.key === selection.zone);
+        if (!zone) {
+          replaceShareSelection({ source: state.shareSelection?.source });
+          setStatus(workflowStatusEl, "The shared Ultimate zone is not available for this source.", "error");
+          return;
+        }
+
+        await openZone(zone, { requestedEncounterId: selection.encounter });
+        if (!selection.encounter) return;
+
+        const view = state.zoneViews.get(zone.key);
+        const group = view?.fights?.find((candidate) => candidate.ultimate.encounterId === selection.encounter);
+        if (!group) {
+          replaceShareSelection({ source: state.shareSelection?.source, zone: zone.key });
+          setStatus(workflowStatusEl, "The shared Ultimate encounter is not available in this zone.", "error");
+          return;
+        }
+        await selectUltimate(group, view);
       }
 
       /**
@@ -1709,8 +1770,13 @@
       }
 
       /** Start, or focus, one zone's idempotent bounded detail queue. */
-      async function openZone(zone) {
+      async function openZone(zone, { requestedEncounterId = null } = {}) {
         state.activeZoneKey = zone.key;
+        replaceShareSelection({
+          source: state.shareSelection?.source || sourceUrlEl.value,
+          zone: zone.key,
+          encounter: requestedEncounterId,
+        });
         renderZoneList(state.discovery?.zones || []);
         const existing = state.zoneLoads.get(zone.key);
         if (existing) return existing.done;
@@ -1726,6 +1792,7 @@
             renderZoneList(state.discovery?.zones || []);
             if (
               state.activeZoneKey === zone.key
+              && requestedEncounterId == null
               && hasSingleSupportedFight(update.zone)
               && state.activeEncounterId !== update.zone.fights[0].ultimate.encounterId
             ) {
@@ -1765,6 +1832,11 @@
         state.activeZoneKey = zone.key;
         state.activeEncounterId = group.ultimate.encounterId;
         state.selectedUltimate = group.ultimate;
+        replaceShareSelection({
+          source: state.shareSelection?.source || sourceUrlEl.value,
+          zone: zone.key,
+          encounter: group.ultimate.encounterId,
+        });
         renderZoneList(state.discovery?.zones || []);
         await loadSelectedUltimate(group, zone, { renderCharts: zone.complete });
       }
@@ -2249,13 +2321,14 @@
         return { ...config };
       }
 
-      connectBtn.addEventListener("click", () =>
-        startLogin({
+      connectBtn.addEventListener("click", () => {
+        saveShareSelectionForLogin();
+        return startLogin({
           config: FFLOGS_CONFIG,
           locationLike: window.location,
           storage: window.sessionStorage,
-        }),
-      );
+        });
+      });
 
       document.querySelectorAll(".tab[data-tab-group]").forEach((tab) => {
         tab.addEventListener("click", () => activateChartTab(tab));
@@ -2449,6 +2522,7 @@
       }
 
       try {
+        const oauthCallback = hasOAuthCallback(window.location.search);
         await completeLogin({
           config: FFLOGS_CONFIG,
           locationLike: window.location,
@@ -2457,9 +2531,15 @@
         });
 
         if (tokenStore.isAuthenticated()) {
+          const sharedSelection = resolveAuthenticatedShareSelection({
+            search: window.location.search,
+            storage: window.sessionStorage,
+            oauthCallback,
+          });
+          if (sharedSelection) replaceShareSelection(sharedSelection);
           state.currentUser = await loadCurrentUser({ queryFflogs: queryWithToken });
           setStatus(authStatusEl, `Authenticated as ${state.currentUser?.name || "FFLogs user"}.`, "ok");
-          await initializeAutomaticSourceFlow();
+          await initializeAutomaticSourceFlow({ sharedSelection });
         } else {
           sourceConnectEl.hidden = false;
           setStatus(authStatusEl, "Not authenticated. Click Connect FFLogs.");

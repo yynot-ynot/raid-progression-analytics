@@ -116,6 +116,20 @@ test("authentication failures use the standard unauthenticated status", () => {
   assert.doesNotMatch(bootstrapCatch, /setStatus\(authStatusEl, error\.message/);
 });
 
+test("share navigation preserves choices through login and restores source before descendants", () => {
+  assert.match(indexHtml, /from "\.\/src\/navigation\/shareSelection\.js"/);
+  assert.match(indexHtml, /shareSelection: parseShareSelection\(window\.location\.search\)/);
+  assert.match(indexHtml, /saveShareSelectionForLogin\(\);\s*return startLogin/);
+  assert.match(indexHtml, /const sharedSelection = resolveAuthenticatedShareSelection/);
+  assert.match(indexHtml, /await initializeAutomaticSourceFlow\(\{ sharedSelection \}\)/);
+  assert.match(indexHtml, /if \(sharedSelection\?\.source\)/);
+  assert.match(indexHtml, /restoreSelection: sharedSelection/);
+  assert.match(indexHtml, /if \(restoreSelection\?\.zone\) await restoreSharedSelection\(restoreSelection\)/);
+  assert.match(indexHtml, /await openZone\(zone, \{ requestedEncounterId: selection\.encounter \}\)/);
+  assert.match(indexHtml, /await selectUltimate\(group, view\)/);
+  assert.match(indexHtml, /requestedEncounterId == null\s*&& hasSingleSupportedFight/);
+});
+
 // A selected fight reads its opened zone's cache. The zone loader owns FFLogs
 // detail requests, and selection itself does not invoke an API loader.
 test("selected Ultimate loading reuses opened-zone details", () => {
@@ -123,7 +137,7 @@ test("selected Ultimate loading reuses opened-zone details", () => {
   assert.match(indexHtml, /const summaryMetrics = buildSummaryMetrics\(bundle\.pulls\);/);
   assert.match(indexHtml, /pulls: bundle\.pulls\.length,\s*\.\.\.summaryMetrics,/);
   assert.match(indexHtml, /Loading available data for \$\{group\.ultimate\.displayName\}/);
-  assert.match(indexHtml, /function openZone\(zone\)/);
+  assert.match(indexHtml, /function openZone\(zone,/);
   assert.match(indexHtml, /const existing = state\.zoneLoads\.get\(zone\.key\);/);
   assert.match(indexHtml, /if \(existing\) return existing\.done;/);
 });
